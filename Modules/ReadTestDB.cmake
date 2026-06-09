@@ -78,7 +78,7 @@ macro(unset_test_variables)
     unset(TEST_GIT_REPO)
     unset(TEST_COMMIT_HASH)
 
-    foreach(_prefix TEST_) # PYTEST_
+    foreach(_prefix TEST_ PYTEST_)
         unset(${_prefix}TARGETS)
         unset(${_prefix}TARGETS_ARGS)
         unset(${_prefix}CMAKELISTS_DIR)
