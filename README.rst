@@ -8,7 +8,7 @@ This repository contains a framework for end-to-end testing of applications that
 Requirements
 ============
 
-- CMake (minimum 3.18, see https://cmake.org/);
+- CMake (minimum 3.21, see https://cmake.org/);
 - C++ tool chain; and
 - libCellML installation (see https://github.com/cellml/libcellml).
 
