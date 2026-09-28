@@ -19,7 +19,7 @@
     Exits non-zero if any error is found.
 ]]
 
-cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
 
 if (NOT DEFINED TEST_DB)
     message(FATAL_ERROR "TEST_DB is not set. Usage: cmake -DTEST_DB=<directory> -P validate_test_db.cmake")
@@ -121,11 +121,11 @@ macro(_v_check_definition _v_file _v_is_reference)
             _v_error("${_v_file}" "the referenced definition is itself an external reference; chained references are not supported")
         endif ()
 
-        if (NOT TEST_GIT_REPO)
+        if (NOT DEFINED TEST_GIT_REPO OR "${TEST_GIT_REPO}" STREQUAL "")
             _v_error("${_v_file}" "sets no TEST_GIT_REPO and no TEST_EXTERNAL_REFERENCE")
         endif ()
 
-        if (NOT TEST_COMMIT_HASH)
+        if (NOT DEFINED TEST_COMMIT_HASH OR "${TEST_COMMIT_HASH}" STREQUAL "")
             _v_warn("${_v_file}" "sets no TEST_COMMIT_HASH; the framework will use 'main', which is not reproducible")
         else ()
             _v_is_pinned("${TEST_COMMIT_HASH}" _v_pinned)
@@ -138,15 +138,18 @@ macro(_v_check_definition _v_file _v_is_reference)
             _v_warn("${_v_file}" "sets TEST_NAME, which is ignored; the suite name comes from the file name")
         endif ()
 
-        if (PYTEST_TARGETS AND NOT TEST_TARGETS)
+        list(LENGTH TEST_TARGETS _v_n_test_targets)
+        list(LENGTH PYTEST_TARGETS _v_n_pytest_targets)
+        if (_v_n_pytest_targets GREATER 0 AND _v_n_test_targets EQUAL 0)
             _v_error("${_v_file}" "defines PYTEST_TARGETS but no TEST_TARGETS; the framework only computes the repository root while processing compiled targets, so the Python tests would use the wrong root")
         endif ()
 
-        if (PYTEST_CMAKELISTS_DIR)
+        list(LENGTH PYTEST_CMAKELISTS_DIR _v_n_pytest_dirs)
+        if (_v_n_pytest_dirs GREATER 0)
             _v_warn("${_v_file}" "sets PYTEST_CMAKELISTS_DIR, which the framework never reads; Python scripts are not built")
         endif ()
 
-        if (NOT TEST_TARGETS AND NOT PYTEST_TARGETS)
+        if (_v_n_test_targets EQUAL 0 AND _v_n_pytest_targets EQUAL 0)
             _v_warn("${_v_file}" "defines no targets, so it contributes no tests")
         endif ()
 
@@ -154,8 +157,9 @@ macro(_v_check_definition _v_file _v_is_reference)
             set(_v_targets "${${_v_p}TARGETS}")
             list(LENGTH _v_targets _v_n_targets)
 
-            if (_v_targets)
-                if (_v_p STREQUAL "TEST_" AND NOT TEST_CMAKELISTS_DIR)
+            if (_v_n_targets GREATER 0)
+                list(LENGTH TEST_CMAKELISTS_DIR _v_n_test_dirs)
+                if (_v_p STREQUAL "TEST_" AND _v_n_test_dirs EQUAL 0)
                     _v_error("${_v_file}" "defines TEST_TARGETS but no TEST_CMAKELISTS_DIR, so nothing is added to the build and the targets will not exist")
                 endif ()
 
@@ -163,7 +167,7 @@ macro(_v_check_definition _v_file _v_is_reference)
                 foreach (_v_paired TARGETS_ARGS EXPECTED_RESULTS)
                     set(_v_other "${${_v_p}${_v_paired}}")
                     list(LENGTH _v_other _v_n_other)
-                    if (_v_other AND NOT _v_n_other EQUAL _v_n_targets)
+                    if (_v_n_other GREATER 0 AND NOT _v_n_other EQUAL _v_n_targets)
                         _v_error("${_v_file}" "${_v_p}${_v_paired} has ${_v_n_other} entries but ${_v_p}TARGETS has ${_v_n_targets}; pad with NOTFOUND or omit it entirely, or configure fails with 'list index out of range'")
                     endif ()
                 endforeach ()
@@ -174,7 +178,7 @@ macro(_v_check_definition _v_file _v_is_reference)
             set(_v_defs "${${_v_p}CMAKE_DEFS}")
             list(LENGTH _v_dirs _v_n_dirs)
             list(LENGTH _v_defs _v_n_defs)
-            if (_v_defs AND NOT _v_n_defs EQUAL _v_n_dirs)
+            if (_v_n_defs GREATER 0 AND NOT _v_n_defs EQUAL _v_n_dirs)
                 _v_error("${_v_file}" "${_v_p}CMAKE_DEFS has ${_v_n_defs} entries but ${_v_p}CMAKELISTS_DIR has ${_v_n_dirs}; these two are index-aligned with each other, not with ${_v_p}TARGETS")
             endif ()
 
@@ -194,7 +198,7 @@ macro(_v_check_definition _v_file _v_is_reference)
             endforeach ()
 
             # TARGETS_ENV is one pipe-separated string for the whole suite, not a per-target list.
-            if (${_v_p}TARGETS_ENV)
+            if (DEFINED ${_v_p}TARGETS_ENV AND NOT "${${_v_p}TARGETS_ENV}" STREQUAL "")
                 string(REPLACE "|" ";" _v_env_list "${${_v_p}TARGETS_ENV}")
                 foreach (_v_env IN LISTS _v_env_list)
                     if (NOT _v_env MATCHES "^[A-Za-z_][A-Za-z0-9_]*=")

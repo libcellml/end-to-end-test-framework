@@ -178,6 +178,94 @@ Remember that ``.stdout`` files are configured with ``@ONLY`` before comparison,
 path in the captured output should be replaced with ``@TEST_ROOT@`` or ``@TEST_WORKING_DIR@`` by hand
 before committing it. Otherwise the test passes only on the machine that produced it.
 
+Validating a database
+=====================
+
+The framework ships a validator that checks a database against the schema without building
+anything. It does not clone the repositories a database names, does not need libCellML and does not
+need a compiler, so it runs in about a second::
+
+    cmake -DTEST_DB=/path/to/my-test-database -P /path/to/end-to-end-test-framework/validate/validate_test_db.cmake
+
+It reports errors and warnings per file and exits non-zero if there are any errors.
+
+============================  ===============================================================
+Option                        Description
+============================  ===============================================================
+``TEST_DB``                   The database directory. Required.
+``CHECK_REFERENCES``          Resolve every ``TEST_EXTERNAL_REFERENCE`` over the network and
+                              validate the downloaded definition too. Default ``OFF``.
+``WARNINGS_AS_ERRORS``        Exit non-zero on warnings as well. Default ``OFF``.
+============================  ===============================================================
+
+What it catches
+---------------
+
+Errors --- these would break a run:
+
+* a suite that sets neither ``TEST_GIT_REPO`` nor ``TEST_EXTERNAL_REFERENCE``, or sets both;
+* an index-aligned list that is present but the wrong length, which the framework reports only as
+  ``list index: N out of range`` from a generated file;
+* ``TEST_TARGETS`` with no ``TEST_CMAKELISTS_DIR``, so the targets are never built;
+* ``PYTEST_TARGETS`` with no ``TEST_TARGETS``, which resolves against the wrong repository root;
+* a ``CMAKE_DEFS`` entry with more than one definition or more than one ``=``, both of which are
+  silently mis-parsed;
+* a ``TARGETS_ENV`` entry that is not ``NAME=value``;
+* a compiled target name used by more than one suite, which collides in the generated project;
+* an external reference that cannot be downloaded, is empty, or is itself a reference
+  (with ``CHECK_REFERENCES=ON``).
+
+Warnings --- these run, but probably are not what was meant:
+
+* a variable named like a suite variable that the framework does not read, which is usually a typo
+  such as ``TEST_TARGET`` for ``TEST_TARGETS``;
+* a missing or unpinned ``TEST_COMMIT_HASH``, or an external reference URL with no commit in it;
+* ``PYTEST_CMAKELISTS_DIR``, which is never read;
+* ``TEST_NAME``, which is ignored because the suite name comes from the file name;
+* a suite that defines no targets at all.
+
+Running it in CI
+----------------
+
+A database repository can validate itself on every pull request without building anything. Check
+out the database and the framework side by side and run the script:
+
+.. code-block:: yaml
+
+    name: Validate
+
+    on:
+      push:
+        branches:
+          - main
+      pull_request:
+      workflow_dispatch:
+
+    jobs:
+      validate:
+        name: Validate test database
+        runs-on: ubuntu-latest
+        steps:
+          - name: Check out the test database
+            uses: actions/checkout@v4
+
+          - name: Check out the end-to-end test framework
+            uses: actions/checkout@v4
+            with:
+              repository: libcellml/end-to-end-test-framework
+              path: .e2e-framework
+
+          - name: Validate test suite definitions
+            run: >
+              cmake
+              -DTEST_DB=${{ github.workspace }}
+              -DCHECK_REFERENCES=ON
+              -P .e2e-framework/validate/validate_test_db.cmake
+
+Checking the database out at the workspace root rather than in a subdirectory matters: the validator
+emits GitHub Actions annotations for every finding, and their paths are relative to ``TEST_DB``, so
+this layout puts each finding on the right line of the pull request diff.
+
 Keeping a database current
 ==========================
 

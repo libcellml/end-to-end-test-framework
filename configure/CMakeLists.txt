@@ -21,7 +21,7 @@ read_test_db("${DB_DIR}" "${TESTS_BASE_DIR}")
 
 set(SETUP_CMAKELISTS_FILE ${TESTS_BASE_DIR}/CMakeLists.txt)
 file(WRITE ${SETUP_CMAKELISTS_FILE} "
-cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
 set(CMAKE_OSX_DEPLOYMENT_TARGET \"11\" CACHE STRING \"Minimum OS X deployment version\")
 
 project(TestRunner VERSION 1.0 LANGUAGES CXX)

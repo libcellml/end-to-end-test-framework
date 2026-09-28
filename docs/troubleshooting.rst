@@ -168,5 +168,6 @@ rebuild except ``numdiff`` and the clones.
 Version requirements
 ====================
 
-The README asks for CMake 3.21, while the projects themselves declare minimums of 3.18 (top level
-and configure) and 3.10 (acquire). Use 3.21 or newer; the lower declared minimums are not tested.
+Every project in the framework, and the test project it generates, requires CMake 3.26 or newer.
+An older CMake fails at the first configure step with a version error rather than anything
+framework-specific.
