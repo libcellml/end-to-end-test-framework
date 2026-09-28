@@ -205,6 +205,7 @@ Errors --- these would break a run:
   the validator reports every one of them at once rather than stopping at the first);
 * ``TEST_TARGETS`` with no ``TEST_CMAKELISTS_DIR``, so the targets are never built;
 * a ``CMAKE_DEFS`` entry that is not ``NAME=value`` or has an empty name;
+* an ``EXPECTED_RETURN_CODES`` entry that is not a number between 0 and 255;
 * a ``TARGETS_ENV`` entry that is not ``NAME=value``;
 * an external reference that cannot be downloaded, is empty, or is itself a reference
   (with ``CHECK_REFERENCES=ON``).

@@ -43,22 +43,24 @@ Every variable below exists twice: once with a ``TEST_`` prefix, describing comp
 once with a ``PYTEST_`` prefix, describing Python scripts.
 They are written below as ``<P>`` standing for either prefix.
 
-=========================  ==================================================================================
-Variable                   Description
-=========================  ==================================================================================
-``<P>CMAKELISTS_DIR``      List of directories, relative to the repository root, each containing a
-                           ``CMakeLists.txt`` to add. Only used for the ``TEST_`` prefix.
-``<P>TARGETS``             List of things to run. For ``TEST_``, CMake target names. For ``PYTEST_``,
-                           paths to ``.py`` files relative to the repository root.
-``<P>TARGETS_ARGS``        List of argument strings, one per target. Multiple arguments within one
-                           string are separated by ``|``.
-``<P>EXPECTED_RESULTS``    List of paths, one per target, relative to the repository root. Each is a
-                           file or directory holding the expected output.
-``<P>CMAKE_DEFS``          List of variable assignments, one per **CMakeLists directory**, set before
-                           ``add_subdirectory()`` and unset afterwards.
-``<P>TARGETS_ENV``         A single ``|``-separated string of ``NAME=value`` pairs, applied as
-                           environment variables to *every* target in the suite.
-=========================  ==================================================================================
+============================  ==========================================================================
+Variable                      Description
+============================  ==========================================================================
+``<P>CMAKELISTS_DIR``         List of directories, relative to the repository root, each containing a
+                              ``CMakeLists.txt`` to add. Only used for the ``TEST_`` prefix.
+``<P>TARGETS``                List of things to run. For ``TEST_``, CMake target names. For ``PYTEST_``,
+                              paths to ``.py`` files relative to the repository root.
+``<P>TARGETS_ARGS``           List of argument strings, one per target. Multiple arguments within one
+                              string are separated by ``|``.
+``<P>EXPECTED_RESULTS``       List of paths, one per target, relative to the repository root. Each is
+                              a file or directory holding the expected output.
+``<P>EXPECTED_RETURN_CODES``  List of exit codes, one per target, that the target is expected to
+                              produce. ``NOTFOUND`` or omitted means zero.
+``<P>CMAKE_DEFS``             List of variable assignments, one per **CMakeLists directory**, set
+                              before ``add_subdirectory()`` and unset afterwards.
+``<P>TARGETS_ENV``            A single ``|``-separated string of ``NAME=value`` pairs, applied as
+                              environment variables to *every* target in the suite.
+============================  ==========================================================================
 
 Indexing rules
 ==============
@@ -71,12 +73,14 @@ This is the part that catches people out. There are **two** independent indices,
     set(TEST_CMAKE_DEFS      "NONE"      "NONE"      "FOO=bar")
                              ^-----------^-----------^ same index
 
-``TARGETS``, ``TARGETS_ARGS`` and ``EXPECTED_RESULTS`` are aligned with each other::
+``TARGETS``, ``TARGETS_ARGS``, ``EXPECTED_RESULTS`` and ``EXPECTED_RETURN_CODES`` are aligned with
+each other::
 
-    set(TEST_TARGETS          prog_a      prog_b      prog_c)
-    set(TEST_TARGETS_ARGS     "NOTFOUND"  "-n|10"     "input.cellml")
-    set(TEST_EXPECTED_RESULTS "NOTFOUND"  "expected"  "NOTFOUND")
-                              ^-----------^-----------^ same index
+    set(TEST_TARGETS               prog_a      prog_b      prog_c)
+    set(TEST_TARGETS_ARGS          "NOTFOUND"  "-n|10"     "input.cellml")
+    set(TEST_EXPECTED_RESULTS      "NOTFOUND"  "expected"  "NOTFOUND")
+    set(TEST_EXPECTED_RETURN_CODES "NOTFOUND"  "NOTFOUND"  "1")
+                                   ^-----------^-----------^ same index
 
 The two groups do not have to be the same length. A single ``CMakeLists.txt`` can perfectly well
 produce three targets, in which case ``CMAKELISTS_DIR`` has one entry and ``TARGETS`` has three.
@@ -92,7 +96,8 @@ to keep the indices lined up. Two placeholder values are recognised:
 ==============  ================================================================================
 Placeholder     Use
 ==============  ================================================================================
-``NOTFOUND``    In ``TARGETS_ARGS`` and ``EXPECTED_RESULTS``. Means "nothing here".
+``NOTFOUND``    In ``TARGETS_ARGS``, ``EXPECTED_RESULTS`` and ``EXPECTED_RETURN_CODES``.
+                Means "nothing here", which for a return code means zero.
 ``NONE``        In ``CMAKE_DEFS``. Means "no definitions for this directory".
 ==============  ================================================================================
 
@@ -209,8 +214,29 @@ and have that file set ``NUMDIFF_ARGS``::
 Exit status
 ===========
 
-A target is expected to exit zero. There is currently no way to express "this example is expected to
-fail", so error-path examples cannot be covered by the database as it stands.
+A target is expected to exit zero unless ``EXPECTED_RETURN_CODES`` says otherwise. To cover a
+documentation sample that demonstrates an error, give it the code it exits with::
+
+    set(TEST_TARGETS           parse_valid   parse_invalid)
+    set(TEST_EXPECTED_RETURN_CODES "NOTFOUND"    "1")
+
+``parse_valid`` must now exit zero and ``parse_invalid`` must exit 1. A target expected to fail that
+succeeds is a failure, just as the other way round --- so a sample that stops demonstrating its
+error is caught too.
+
+Codes are whole numbers between 0 and 255. ``NOTFOUND``, or omitting the list, means zero; writing
+``0`` explicitly works but says nothing extra, and the validator will point that out.
+
+Output is compared whether or not the target was expected to fail, so the error message a sample
+prints can be held to what the documentation quotes:
+
+.. code-block:: cmake
+
+    set(TEST_TARGETS                parse_invalid)
+    set(TEST_EXPECTED_RETURN_CODES  "1")
+    set(TEST_EXPECTED_RESULTS       expected_output/parse_invalid)
+
+Remember that stdout and stderr are captured together, so a ``.stdout`` file holds both.
 
 External references
 ===================

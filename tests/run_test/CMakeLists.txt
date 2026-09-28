@@ -28,7 +28,7 @@ file(MAKE_DIRECTORY "${WORK_ROOT}")
 # add_run_test(<case> <program> PASS|FAIL [EXPECTED <path>] [TEST_ROOT <dir>]
 #              [MATCH <regex>] [NOT_MATCH <regex>])
 function(add_run_test _case _program _expectation)
-    cmake_parse_arguments(_t "" "EXPECTED;TEST_ROOT;MATCH;NOT_MATCH" "" ${ARGN})
+    cmake_parse_arguments(_t "" "EXPECTED;TEST_ROOT;RETURN_CODE;MATCH;NOT_MATCH" "" ${ARGN})
 
     if (NOT EXISTS "${PROGRAMS}/${_program}")
         message(FATAL_ERROR "No such program: ${_program}")
@@ -58,6 +58,9 @@ function(add_run_test _case _program _expectation)
     if (_t_EXPECTED)
         list(APPEND _command "-DEXPECTED_OUTPUT_IN=${EXPECTED}/${_t_EXPECTED}")
     endif ()
+    if (DEFINED _t_RETURN_CODE AND NOT _t_RETURN_CODE STREQUAL "")
+        list(APPEND _command "-DRETURN_CODE=${_t_RETURN_CODE}")
+    endif ()
     if (_t_MATCH)
         list(APPEND _command "-DEXPECT_MATCH=${_t_MATCH}")
     endif ()
@@ -78,6 +81,37 @@ add_run_test(no-expected-output prints_only.cmake PASS
     NOT_MATCH "Comparing")
 add_run_test(program-fails fails.cmake FAIL
     MATCH "did not execute")
+
+# ---------------------------------------------------------------------------------------------
+# Targets that are expected to fail. A documentation sample demonstrating an error is only worth
+# testing if the framework can assert that it fails, and fails in the way the documentation says.
+# ---------------------------------------------------------------------------------------------
+
+add_run_test(expected-failure fails.cmake PASS
+    RETURN_CODE 1)
+
+add_run_test(expected-failure-but-succeeded prints_only.cmake FAIL
+    RETURN_CODE 1
+    MATCH "was expected to fail with return code 1")
+
+add_run_test(expected-return-code-mismatch fails.cmake FAIL
+    RETURN_CODE 3
+    MATCH "returned 1, expected 3")
+
+# Explicitly asking for 0 is the same as saying nothing.
+add_run_test(explicit-success-code writes_file.cmake PASS
+    RETURN_CODE 0
+    EXPECTED "dir_ok/")
+
+# Output is still compared when the failure was the expected outcome, so the error message a
+# sample prints can be held to what the documentation quotes.
+add_run_test(expected-failure-output-compared fails_with_message.cmake PASS
+    RETURN_CODE 1
+    EXPECTED "failure_output/")
+
+add_run_test(expected-failure-output-mismatch fails_with_message.cmake FAIL
+    RETURN_CODE 1
+    EXPECTED "failure_output_wrong/")
 
 # ---------------------------------------------------------------------------------------------
 # Expected output given as a directory.

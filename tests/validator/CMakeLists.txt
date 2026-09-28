@@ -95,6 +95,7 @@ add_validator_test(valid-env-two-variables        PASS NOT_MATCH "${_NO_FINDINGS
 add_validator_test(valid-defs-aligned             PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-defs-two-definitions     PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-defs-extra-equals        PASS NOT_MATCH "${_NO_FINDINGS}")
+add_validator_test(valid-return-codes             PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-python-alongside-cxx     PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-python-only              PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-multiple-suites          PASS NOT_MATCH "${_NO_FINDINGS}")
@@ -119,6 +120,12 @@ add_validator_test(invalid-short-args-multi FAIL
     MATCH "TEST_TARGETS_ARGS has 2 entries but TEST_TARGETS has 3")
 add_validator_test(invalid-targets-without-cmakelists-dir FAIL
     MATCH "no TEST_CMAKELISTS_DIR")
+add_validator_test(invalid-return-code-not-a-number FAIL
+    MATCH "is not a number; use NOTFOUND")
+add_validator_test(invalid-return-code-out-of-range FAIL
+    MATCH "a process exit code is between 0 and 255")
+add_validator_test(invalid-short-return-codes FAIL
+    MATCH "TEST_EXPECTED_RETURN_CODES has 1 entries but TEST_TARGETS has 3")
 add_validator_test(invalid-defs-no-equals FAIL
     MATCH "is not of the form NAME=value")
 add_validator_test(invalid-defs-empty-name FAIL
@@ -143,6 +150,8 @@ add_validator_test(warn-branch-hash PASS
     MATCH "is not a commit hash")
 add_validator_test(warn-pytest-cmakelists-dir PASS
     MATCH "sets PYTEST_CMAKELISTS_DIR, which the framework never reads")
+add_validator_test(warn-return-code-zero PASS
+    MATCH "which is the default")
 add_validator_test(warn-unpinned-reference PASS
     MATCH "does not appear to be pinned to a commit")
 

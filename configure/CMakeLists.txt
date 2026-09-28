@@ -118,6 +118,7 @@ ${_suite_preamble}")
     foreach(_prefix TEST_ PYTEST_)
         unset(_current_targets)
         unset(_current_expected_results_list)
+        unset(_current_return_codes_list)
         unset(_current_args_list)
         unset(_current_env)
         unset(_current_cmake_defs_list)
@@ -125,18 +126,12 @@ ${_suite_preamble}")
         set(_current_targets ${${_prefix}${TEST_INDEX}_TARGETS})
         set(_current_cmakelists_dirs ${${_prefix}${TEST_INDEX}_CMAKELISTS_DIR})
         set(_current_expected_results_list ${${_prefix}${TEST_INDEX}_EXPECTED_RESULTS})
+        set(_current_return_codes_list ${${_prefix}${TEST_INDEX}_EXPECTED_RETURN_CODES})
         set(_current_args_list ${${_prefix}${TEST_INDEX}_TARGETS_ARGS})
         set(_current_env ${${_prefix}${TEST_INDEX}_TARGETS_ENV})
         set(_current_cmake_defs_list ${${_prefix}${TEST_INDEX}_CMAKE_DEFS})
 
         if (_current_targets)
-            set(write_test_module "Write")
-            if (_prefix STREQUAL "TEST_")
-                set(write_test_module "${write_test_module}TargetTest")
-            elseif (_prefix STREQUAL "PYTEST_")
-                set(write_test_module "${write_test_module}PythonTest")
-            endif ()
-
             list(LENGTH _current_cmakelists_dirs CMAKELISTS_DIR_COUNT)
             set(CMAKELISTS_DIR_INDEX 0)
             while(CMAKELISTS_DIR_INDEX LESS CMAKELISTS_DIR_COUNT)
@@ -175,21 +170,34 @@ ${_suite_preamble}")
             set(TARGET_INDEX 0)
             while(TARGET_INDEX LESS TARGET_COUNT)
                 unset(_current_args)
+                unset(_current_return_code)
 
                 list(GET _current_targets ${TARGET_INDEX} _current_target)
                 list(GET _current_expected_results_list ${TARGET_INDEX} _current_expected_results)
                 if (_current_args_list)
                     list(GET _current_args_list ${TARGET_INDEX} _current_args)
                 endif ()
+                if (_current_return_codes_list)
+                    list(GET _current_return_codes_list ${TARGET_INDEX} _current_return_code)
+                endif ()
                 math(EXPR TARGET_INDEX "${TARGET_INDEX}+1")
                 if (TARGET_COUNT GREATER 1)
                     set(_current_name ${_current_name}/${_current_target})
                 endif ()
-                include(${write_test_module})
-                write_test("${SETUP_CMAKELISTS_FILE}" "${_current_name}" "${_current_target}" "${_current_root}"
-                    "${_current_expected_results}"
-                    "${_current_env}"
-                    "${_current_args}")
+                if (_prefix STREQUAL "TEST_")
+                    set(_write_kind COMPILED)
+                else ()
+                    set(_write_kind PYTHON)
+                endif ()
+                write_test(${_write_kind}
+                    FILE "${SETUP_CMAKELISTS_FILE}"
+                    NAME "${_current_name}"
+                    TARGET "${_current_target}"
+                    ROOT "${_current_root}"
+                    ARGS "${_current_args}"
+                    EXPECTED_RESULTS "${_current_expected_results}"
+                    ENV "${_current_env}"
+                    RETURN_CODE "${_current_return_code}")
                 # Reset current name
                 set(_current_name ${_current_unmodified_name})
             endwhile()

@@ -1,0 +1,5 @@
+could not parse the model
+CMake Error at @TEST_ROOT@/fails_with_message.cmake:2 (message):
+  deliberate failure
+
+

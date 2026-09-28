@@ -1,58 +1,105 @@
-function(write_target_test OUTPUT_FILENAME TEST_NAME TEST_TARGET TEST_ROOT TEST_EXPECTED_RESULTS TEST_ENV)
-    set(TEST_CMD "\$<TARGET_FILE:${TEST_TARGET}>")
-    _write_test_to_file("${OUTPUT_FILENAME}" "${TEST_NAME}" "${TEST_CMD}" "${TEST_ROOT}" "${TEST_EXPECTED_RESULTS}" "${TEST_ENV}" ${ARGN})
-endfunction()
+#[[
+    Write the add_test() call for one target into a test suite's generated project.
 
-macro(write_python_test OUTPUT_FILENAME TEST_NAME TEST_TARGET TEST_ROOT TEST_EXPECTED_RESULTS TEST_ENV)
-    # PYTHON_COMMAND is resolved once by the configure project. Quoted throughout because an
-    # interpreter path can contain spaces.
-    set(TEST_CMD "${PYTHON_COMMAND}|${TEST_ROOT}/${TEST_TARGET}")
-    _write_test_to_file("${OUTPUT_FILENAME}" "py${TEST_NAME}" "${TEST_CMD}" "${TEST_ROOT}" "${TEST_EXPECTED_RESULTS}" "${TEST_ENV}" ${ARGN})
-endmacro()
+    Every test is run through run_test.cmake rather than invoked directly, so what is written here
+    is a cmake -P command carrying the settings that harness needs.
+]]
 
-function(_write_test_to_file OUTPUT_FILENAME TEST_NAME TEST_CMD TEST_ROOT TEST_EXPECTED_RESULTS TEST_ENV)
+#[[
+    write_test(COMPILED|PYTHON
+        FILE <path>                the generated project to append to
+        NAME <name>                the CTest test name
+        TARGET <name>              a CMake target for COMPILED, a script path for PYTHON
+        ROOT <dir>                 the repository root the test resolves paths against
+        [ARGS <a|b|c>]             arguments, pipe-separated
+        [EXPECTED_RESULTS <path>]  file or directory of expected output, relative to ROOT
+        [ENV <NAME=value|...>]     environment variables, pipe-separated
+        [RETURN_CODE <n>]          the exit code the target is expected to produce; default 0
 
-    foreach(_arg ${ARGN})
-        string(REPLACE "|" ";" _args_list ${_arg})
-        set(_extended_args)
-        foreach(_arg_in ${_args_list})
-            if (EXISTS "${TEST_ROOT}/${_arg_in}")
-                list(APPEND _extended_args "${TEST_ROOT}/${_arg_in}")
-            else ()
-                list(APPEND _extended_args ${_arg_in})
-            endif ()
-        endforeach()
-        string(REPLACE ";" "|" _extended_args "${_extended_args}")
-        set(TEST_CMD "${TEST_CMD}|${_extended_args}")
-    endforeach()
-    if (TEST_EXPECTED_RESULTS AND NOT TEST_EXPECTED_RESULTS STREQUAL "NOTFOUND")
-        # Pre-quoted, so that nothing is emitted at all when there are no expected results.
-        set(EXPECTED_OUTPUT_ARGUMENT "\"-DEXPECTED_OUTPUT=${TEST_ROOT}/${TEST_EXPECTED_RESULTS}\"")
+    One function for both kinds. They previously had two incompatible shapes -- one taking
+    positional arguments, the other taking none and reading the caller's variables -- selected by
+    include()ing one of two modules inside the generation loop.
+]]
+function(write_test _kind)
+    cmake_parse_arguments(PARSE_ARGV 1 _t
+        "" "FILE;NAME;TARGET;ROOT;ARGS;EXPECTED_RESULTS;ENV;RETURN_CODE" "")
+
+    foreach (_required FILE NAME TARGET ROOT)
+        if (NOT DEFINED _t_${_required} OR _t_${_required} STREQUAL "")
+            message(FATAL_ERROR "write_test: ${_required} is required.")
+        endif ()
+    endforeach ()
+
+    set(_name "${_t_NAME}")
+    if (_kind STREQUAL "COMPILED")
+        # Written through to the generated project, where it is a generator expression.
+        set(_command "\$<TARGET_FILE:${_t_TARGET}>")
+    elseif (_kind STREQUAL "PYTHON")
+        # PYTHON_COMMAND is resolved once by the configure project. Quoted throughout because an
+        # interpreter path can contain spaces.
+        set(_command "${PYTHON_COMMAND}|${_t_ROOT}/${_t_TARGET}")
+        set(_name "py${_name}")
+    else ()
+        message(FATAL_ERROR "write_test: kind must be COMPILED or PYTHON, got '${_kind}'.")
     endif ()
 
-    string(CONFIGURE "${TEST_ENV}" CONFIGURED_TEST_ENV @ONLY)
+    # An argument that names a file in the repository is replaced by its absolute path, so a
+    # database can refer to resources by a path relative to the repository root.
+    if (DEFINED _t_ARGS AND NOT _t_ARGS STREQUAL "" AND NOT _t_ARGS STREQUAL "NOTFOUND")
+        string(REPLACE "|" ";" _argument_list "${_t_ARGS}")
+        set(_resolved_arguments)
+        foreach (_argument IN LISTS _argument_list)
+            if (EXISTS "${_t_ROOT}/${_argument}")
+                list(APPEND _resolved_arguments "${_t_ROOT}/${_argument}")
+            else ()
+                list(APPEND _resolved_arguments "${_argument}")
+            endif ()
+        endforeach ()
+        string(REPLACE ";" "|" _resolved_arguments "${_resolved_arguments}")
+        set(_command "${_command}|${_resolved_arguments}")
+    endif ()
 
-    set(_TMP_OUTPUT "
+    # Pre-quoted, so that nothing is emitted at all when there are no expected results.
+    set(_expected_output_argument "")
+    if (DEFINED _t_EXPECTED_RESULTS AND NOT _t_EXPECTED_RESULTS STREQUAL ""
+            AND NOT _t_EXPECTED_RESULTS STREQUAL "NOTFOUND")
+        set(_expected_output_argument "\"-DEXPECTED_OUTPUT=${_t_ROOT}/${_t_EXPECTED_RESULTS}\"")
+    endif ()
+
+    set(_return_code 0)
+    if (DEFINED _t_RETURN_CODE AND NOT _t_RETURN_CODE STREQUAL ""
+            AND NOT _t_RETURN_CODE STREQUAL "NOTFOUND")
+        set(_return_code "${_t_RETURN_CODE}")
+    endif ()
+    if (NOT _return_code MATCHES "^[0-9]+$" OR _return_code GREATER 255)
+        message(FATAL_ERROR
+            "Test '${_name}': expected return code '${_return_code}' is not a number between 0 "
+            "and 255.")
+    endif ()
+
+    # TARGETS_ENV may contain @TEST_ROOT@. string(CONFIGURE) resolves it against a variable of
+    # that exact name, so set one rather than relying on what a parameter happens to be called.
+    set(TEST_ROOT "${_t_ROOT}")
+    string(CONFIGURE "${_t_ENV}" _configured_environment @ONLY)
+
+    file(APPEND "${_t_FILE}" "
 # Create output directory
-file(MAKE_DIRECTORY \${CMAKE_BINARY_DIR}/test_runs/${TEST_NAME})
-add_test(NAME ${TEST_NAME}
+file(MAKE_DIRECTORY \${CMAKE_BINARY_DIR}/test_runs/${_name})
+add_test(NAME ${_name}
    COMMAND ${CMAKE_COMMAND}
-   \"-DTEST_NAME=${TEST_NAME}\"
-   \"-DTEST_CMD=${TEST_CMD}\"
-   \"-DTEST_ROOT=${TEST_ROOT}\"
-   ${EXPECTED_OUTPUT_ARGUMENT}
-   \"-DTEST_OUTPUT=\${CMAKE_BINARY_DIR}/test_runs/${TEST_NAME}\"
+   \"-DTEST_NAME=${_name}\"
+   \"-DTEST_CMD=${_command}\"
+   \"-DTEST_ROOT=${_t_ROOT}\"
+   \"-DEXPECTED_RETURN_CODE=${_return_code}\"
+   ${_expected_output_argument}
+   \"-DTEST_OUTPUT=\${CMAKE_BINARY_DIR}/test_runs/${_name}\"
    -P \"${TESTS_BASE_DIR}/run_test.cmake\"
 )
 ")
-    file(APPEND ${OUTPUT_FILENAME} ${_TMP_OUTPUT})
 
-    if(CONFIGURED_TEST_ENV AND NOT CONFIGURED_TEST_ENV STREQUAL "NOENV=")
-        set(_TMP_OUTPUT "
-set_tests_properties(${TEST_NAME} PROPERTIES ENVIRONMENT \"${CONFIGURED_TEST_ENV}\")
+    if (NOT _configured_environment STREQUAL "" AND NOT _configured_environment STREQUAL "NOENV=")
+        file(APPEND "${_t_FILE}" "
+set_tests_properties(${_name} PROPERTIES ENVIRONMENT \"${_configured_environment}\")
 ")
-
-        file(APPEND ${OUTPUT_FILENAME} ${_TMP_OUTPUT})
-    endif()
+    endif ()
 endfunction()
-

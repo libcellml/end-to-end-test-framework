@@ -41,6 +41,7 @@ set(_v_target_vars
     TARGETS_ARGS
     CMAKELISTS_DIR
     EXPECTED_RESULTS
+    EXPECTED_RETURN_CODES
     TARGETS_ENV
     CMAKE_DEFS
 )
@@ -160,7 +161,7 @@ macro(_v_check_definition _v_file _v_is_reference)
                 endif ()
 
                 # TARGETS, TARGETS_ARGS and EXPECTED_RESULTS share an index.
-                foreach (_v_paired TARGETS_ARGS EXPECTED_RESULTS)
+                foreach (_v_paired TARGETS_ARGS EXPECTED_RESULTS EXPECTED_RETURN_CODES)
                     set(_v_other "${${_v_p}${_v_paired}}")
                     list(LENGTH _v_other _v_n_other)
                     if (_v_n_other GREATER 0 AND NOT _v_n_other EQUAL _v_n_targets)
@@ -177,6 +178,20 @@ macro(_v_check_definition _v_file _v_is_reference)
             if (_v_n_defs GREATER 0 AND NOT _v_n_defs EQUAL _v_n_dirs)
                 _v_error("${_v_file}" "${_v_p}CMAKE_DEFS has ${_v_n_defs} entries but ${_v_p}CMAKELISTS_DIR has ${_v_n_dirs}; these two are index-aligned with each other, not with ${_v_p}TARGETS")
             endif ()
+
+            # A return code is what the target is expected to exit with; NOTFOUND means the
+            # default of zero.
+            foreach (_v_code IN LISTS ${_v_p}EXPECTED_RETURN_CODES)
+                if (NOT _v_code STREQUAL "NOTFOUND")
+                    if (NOT _v_code MATCHES "^[0-9]+$")
+                        _v_error("${_v_file}" "${_v_p}EXPECTED_RETURN_CODES entry '${_v_code}' is not a number; use NOTFOUND for a target that is expected to succeed")
+                    elseif (_v_code GREATER 255)
+                        _v_error("${_v_file}" "${_v_p}EXPECTED_RETURN_CODES entry '${_v_code}' is out of range; a process exit code is between 0 and 255")
+                    elseif (_v_code EQUAL 0)
+                        _v_warn("${_v_file}" "${_v_p}EXPECTED_RETURN_CODES entry is 0, which is the default; NOTFOUND says the same thing more clearly")
+                    endif ()
+                endif ()
+            endforeach ()
 
             # An entry holds one or more NAME=value pairs separated by '|'. A value may itself
             # contain '=', so only the first one separates the name from the value.

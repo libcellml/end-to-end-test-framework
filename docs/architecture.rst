@@ -223,8 +223,11 @@ The harness then:
    not interfere with each other.
 2. Runs the command, capturing stdout **and** stderr into one variable.
 3. Writes that capture to ``<TEST_NAME>.ctest_stdout`` in the working directory.
-4. Fails the test if the exit code was non-zero.
-5. Otherwise, if ``EXPECTED_OUTPUT`` was given, compares outputs.
+4. Fails the test unless the exit code is the one expected --- zero, or whatever
+   ``EXPECTED_RETURN_CODES`` gave for this target. A target that was meant to fail and succeeded
+   fails the test just as surely as the other way round.
+5. Otherwise, if ``EXPECTED_OUTPUT`` was given, compares outputs. This happens whether or not the
+   target was expected to fail, so the error message a sample prints can be compared too.
 
 Comparison
 ----------
@@ -275,7 +278,8 @@ Suite              Covers
 ``configure``      ``configure/CMakeLists.txt`` --- generating the test project from a database:
                    test naming, repository roots for compiled and Python targets, and interpreter
                    resolution. The generated file is read back as text; nothing is built.
-``run_test``       ``configure/run_test.cmake`` --- the comparison paths: expected output as a
+``run_test``       ``configure/run_test.cmake`` --- expected return codes, and the comparison
+                   paths: expected output as a
                    directory or as a single file, nested files, missing files, ``.numdiff``
                    siblings, and ``@TEST_ROOT@`` substitution in expected stdout.
 ``pre_post_test``  ``Modules/PrePostTest.cmake`` --- ``CMAKE_DEFS`` parsing, including several

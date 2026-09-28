@@ -154,12 +154,15 @@ macro(add_functional_test TEST_DESCRIPTION_FILE)
             _check_index_aligned("${TEST_NAME}" "${TEST_DESCRIPTION_FILE}" "${_prefix}"
                 TARGETS "${${_prefix}TARGETS}" EXPECTED_RESULTS "${${_prefix}EXPECTED_RESULTS}" NOTFOUND)
             _check_index_aligned("${TEST_NAME}" "${TEST_DESCRIPTION_FILE}" "${_prefix}"
+                TARGETS "${${_prefix}TARGETS}" EXPECTED_RETURN_CODES "${${_prefix}EXPECTED_RETURN_CODES}" NOTFOUND)
+            _check_index_aligned("${TEST_NAME}" "${TEST_DESCRIPTION_FILE}" "${_prefix}"
                 CMAKELISTS_DIR "${${_prefix}CMAKELISTS_DIR}" CMAKE_DEFS "${${_prefix}CMAKE_DEFS}" NONE)
 
             set(${_prefix}${TEST_COUNT}_TARGETS ${${_prefix}TARGETS})
             set(${_prefix}${TEST_COUNT}_TARGETS_ARGS ${${_prefix}TARGETS_ARGS})
             set(${_prefix}${TEST_COUNT}_CMAKELISTS_DIR ${${_prefix}CMAKELISTS_DIR})
             set(${_prefix}${TEST_COUNT}_EXPECTED_RESULTS ${${_prefix}EXPECTED_RESULTS})
+            set(${_prefix}${TEST_COUNT}_EXPECTED_RETURN_CODES ${${_prefix}EXPECTED_RETURN_CODES})
             set(${_prefix}${TEST_COUNT}_CMAKE_DEFS ${${_prefix}CMAKE_DEFS})
 
             if (DEFINED ${_prefix}TARGETS_ENV)
@@ -183,6 +186,7 @@ macro(unset_test_variables)
         unset(${_prefix}TARGETS_ARGS)
         unset(${_prefix}CMAKELISTS_DIR)
         unset(${_prefix}EXPECTED_RESULTS)
+        unset(${_prefix}EXPECTED_RETURN_CODES)
         unset(${_prefix}TARGETS_ENV)
         unset(${_prefix}CMAKE_DEFS)
     endforeach()

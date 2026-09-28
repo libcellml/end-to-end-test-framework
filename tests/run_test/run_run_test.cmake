@@ -15,6 +15,7 @@
 
     Optional:
       EXPECTED_OUTPUT_IN  Passed through as EXPECTED_OUTPUT. Omitted to test the no-comparison path.
+      RETURN_CODE         Passed through as EXPECTED_RETURN_CODE. Omitted to leave it defaulting.
       EXPECT_MATCH        Regular expression the combined output must match.
       EXPECT_NOT_MATCH    Regular expression the combined output must not match.
 ]]
@@ -42,6 +43,9 @@ set(_command "${CMAKE_COMMAND}"
 )
 if (DEFINED EXPECTED_OUTPUT_IN AND NOT EXPECTED_OUTPUT_IN STREQUAL "")
     list(APPEND _command "-DEXPECTED_OUTPUT=${EXPECTED_OUTPUT_IN}")
+endif ()
+if (DEFINED RETURN_CODE AND NOT RETURN_CODE STREQUAL "")
+    list(APPEND _command "-DEXPECTED_RETURN_CODE=${RETURN_CODE}")
 endif ()
 list(APPEND _command -P "${HARNESS}")
 

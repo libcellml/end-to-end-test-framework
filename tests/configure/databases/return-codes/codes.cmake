@@ -1,0 +1,7 @@
+set(TEST_GIT_REPO "https://example.com/codes")
+set(TEST_COMMIT_HASH "c0de111")
+set(TEST_CMAKELISTS_DIR .)
+set(TEST_TARGETS ok_prog failing_prog)
+set(TEST_EXPECTED_RETURN_CODES "NOTFOUND" "1")
+set(PYTEST_TARGETS ok.py failing.py)
+set(PYTEST_EXPECTED_RETURN_CODES "NOTFOUND" "2")

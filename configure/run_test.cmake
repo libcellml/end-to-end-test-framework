@@ -7,6 +7,12 @@ if (NOT TEST_OUTPUT)
     message( FATAL_ERROR "Variable TEST_OUTPUT not defined" )
 endif ()
 
+# A target that is meant to fail declares the code it should exit with. Anything that does not
+# declare one is expected to succeed.
+if (NOT DEFINED EXPECTED_RETURN_CODE OR EXPECTED_RETURN_CODE STREQUAL "")
+    set(EXPECTED_RETURN_CODE 0)
+endif ()
+
 if (DEFINED EXPECTED_OUTPUT)
     set(EXPECTED_OUTPUT_DEFINED TRUE)
 else ()
@@ -22,7 +28,7 @@ message(STATUS "Working directory: ${TEST_WORKING_DIR}")
 
 execute_process(
     COMMAND ${TEST_CMD}
-    RESULT_VARIABLE test_execution_not_successful
+    RESULT_VARIABLE _test_return_code
     OUTPUT_VARIABLE _out
     ERROR_VARIABLE _out
     WORKING_DIRECTORY "${TEST_WORKING_DIR}")
@@ -98,12 +104,20 @@ function(compare_expected_file _expected _actual)
     endif()
 endfunction()
 
-if (test_execution_not_successful)
-    message(STATUS "Test did not execute successfully, with output:")
+# execute_process reports a message rather than a number when the command could not be started at
+# all, so compare as strings.
+if (NOT "${_test_return_code}" STREQUAL "${EXPECTED_RETURN_CODE}")
+    message(STATUS "Test returned '${_test_return_code}', expected '${EXPECTED_RETURN_CODE}', with output:")
     message("## output start ##")
     message("${_out}")
     message("## output end ##")
-    message(SEND_ERROR "${TEST_NAME} did not execute succesfully!\n${TEST_CMD}")
+    if (EXPECTED_RETURN_CODE EQUAL 0)
+        message(SEND_ERROR "${TEST_NAME} did not execute successfully!\n${TEST_CMD}")
+    elseif ("${_test_return_code}" STREQUAL "0")
+        message(SEND_ERROR "${TEST_NAME} was expected to fail with return code ${EXPECTED_RETURN_CODE}, but it succeeded.\n${TEST_CMD}")
+    else ()
+        message(SEND_ERROR "${TEST_NAME} returned ${_test_return_code}, expected ${EXPECTED_RETURN_CODE}.\n${TEST_CMD}")
+    endif ()
 else()
     if (EXPECTED_OUTPUT_DEFINED)
         message(STATUS "Comparing output")

@@ -92,14 +92,15 @@ Run a single test with its output::
 
     ctest -R libcellml_howto/parse_and_print --output-on-failure
 
-``did not execute succesfully``
--------------------------------
+``did not execute successfully``
+--------------------------------
 
 The program exited non-zero. The full captured output is printed between ``## output start ##`` and
 ``## output end ##`` markers, and the command line that was run is printed after the message.
 
-There is currently no way to express an expected failure, so a sample that is *meant* to exit
-non-zero cannot be tested as-is.
+A sample that is *meant* to exit non-zero should say so with ``EXPECTED_RETURN_CODES``. Two related
+messages come from the same check: *was expected to fail with return code N, but it succeeded*, and
+*returned M, expected N*.
 
 Output comparison fails only on some machines
 ---------------------------------------------

@@ -175,6 +175,20 @@ else ()
 endif ()
 
 # ---------------------------------------------------------------------------------------------
+# Expected return codes reach the generated tests, for both kinds of target.
+# ---------------------------------------------------------------------------------------------
+
+add_configure_test(return-codes return-codes PASS
+    MATCH "EXPECTED_RETURN_CODE=1|||EXPECTED_RETURN_CODE=2|||EXPECTED_RETURN_CODE=0")
+
+# A code that is not a number is refused rather than written into a test that can never pass.
+add_configure_test(return-code-not-a-number return-code-not-a-number FAIL
+    LOG_MATCH "is not a number between 0")
+
+add_configure_test(mismatched-return-codes mismatched-return-codes FAIL
+    LOG_MATCH "TEST_EXPECTED_RETURN_CODES has 2 entries|||TEST_TARGETS has 3 entries")
+
+# ---------------------------------------------------------------------------------------------
 # Index-aligned lists of the wrong length. Reading the database rejects these, naming the suite,
 # the two settings and their counts. LOG_NOT_MATCH pins that we stop before CMake's own
 # 'list index out of range', which is what used to surface instead, from a generated file.
