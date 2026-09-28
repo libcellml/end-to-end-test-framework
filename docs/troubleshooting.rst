@@ -34,7 +34,7 @@ forwarded from the top-level configure into the generated project, so set one of
     cmake -DCMAKE_PREFIX_PATH=/home/andre/usr/local ../end-to-end-test-framework
 
 If you set it after the first configure, delete ``build-configure-*`` and ``build-build-*`` so that
-the generated ``tests/CMakeLists.txt`` is rewritten with the new value.
+the generated suite projects are rewritten with the new value.
 
 A target in the database does not exist
 ---------------------------------------
@@ -49,8 +49,9 @@ pinned commit --- a renamed target in the upstream repository is a common cause.
 Duplicate target names
 ----------------------
 
-All suites are added into one generated project, so two documentation repositories that both define
-a target called ``main`` will collide. Target names have to be unique across the whole database.
+Not a problem. Each suite is built as a CMake project of its own, so two documentation repositories
+may both define a target called ``main``. CTest names stay distinct because every test is prefixed
+with its suite's name.
 
 ``Failed to download the external reference for test suite '...'``
 -------------------------------------------------------------------
@@ -77,7 +78,7 @@ Where to look
 
 Each test runs in its own directory::
 
-    <build>/build-build-<type>/test_runs/<TEST_NAME>/
+    <build>/build-build-<type>/<suite>/test_runs/<TEST_NAME>/
 
 That directory holds ``<TEST_NAME>.ctest_stdout`` --- the captured stdout and stderr --- along with
 any files the program wrote and, when stdout was compared, the configured expected output as

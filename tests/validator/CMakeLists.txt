@@ -98,6 +98,8 @@ add_validator_test(valid-defs-extra-equals        PASS NOT_MATCH "${_NO_FINDINGS
 add_validator_test(valid-python-alongside-cxx     PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-python-only              PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-multiple-suites          PASS NOT_MATCH "${_NO_FINDINGS}")
+# Two suites may use the same target name: each suite is a CMake project of its own.
+add_validator_test(valid-duplicate-target         PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-external-reference       PASS NOT_MATCH "${_NO_FINDINGS}")
 
 # ------------------------------------------------------------------------------------------------
@@ -125,8 +127,6 @@ add_validator_test(invalid-malformed-env FAIL
     MATCH "is not of the form NAME=value")
 add_validator_test(invalid-no-git-repo FAIL
     MATCH "sets no TEST_GIT_REPO and no TEST_EXTERNAL_REFERENCE")
-add_validator_test(invalid-duplicate-target FAIL
-    MATCH "is already defined by another suite")
 add_validator_test(invalid-repo-and-reference FAIL
     MATCH "sets both TEST_EXTERNAL_REFERENCE and TEST_GIT_REPO")
 

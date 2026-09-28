@@ -53,7 +53,6 @@ endforeach ()
 
 set(_v_errors 0)
 set(_v_warnings 0)
-set(_v_all_cmake_targets)
 set(_v_seen_unknown_vars)
 
 function(_v_report _level _file _message)
@@ -206,15 +205,6 @@ macro(_v_check_definition _v_file _v_is_reference)
             endif ()
         endforeach ()
 
-        # Every suite is added into one generated project, so compiled target names must be unique
-        # across the whole database.
-        foreach (_v_target IN LISTS TEST_TARGETS)
-            if (_v_target IN_LIST _v_all_cmake_targets)
-                _v_error("${_v_file}" "target '${_v_target}' is already defined by another suite; CMake target names must be unique across the whole database")
-            else ()
-                list(APPEND _v_all_cmake_targets "${_v_target}")
-            endif ()
-        endforeach ()
     endif ()
 endmacro()
 

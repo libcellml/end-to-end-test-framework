@@ -14,9 +14,13 @@
       EXPECT_EXIT    0 if configuring should succeed, 1 if it should fail.
 
     Optional:
-      MATCH / NOT_MATCH        Regular expressions the generated CMakeLists.txt must or must not
-                               match. Several may be given, separated by '|||'.
+      MATCH / NOT_MATCH        Regular expressions the generated projects must or must not match.
+                               Every generated project file is concatenated first, so a pattern may
+                               come from any of them. Several may be given, separated by '|||'.
       LOG_MATCH                Regular expression the configure output must match.
+      EXPECT_SUITES            Pipe-separated suite names the manifest must list, in order.
+      BUILD_SUITES             If true, also build every generated project and run ctest over it.
+                               Needs a C++ compiler and the stub libCellML.
       EXTRA_ARGS               Further -D arguments, separated by '|'.
 ]]
 
@@ -68,8 +72,33 @@ else ()
     endif ()
 endif ()
 
-if (EXISTS "${_tests_base}/CMakeLists.txt")
-    file(READ "${_tests_base}/CMakeLists.txt" _generated)
+# One project per suite, so gather them all. Sorted for a stable order.
+set(_project_files)
+file(GLOB _project_dirs LIST_DIRECTORIES TRUE "${_tests_base}/_projects/*")
+list(SORT _project_dirs)
+foreach (_project_dir IN LISTS _project_dirs)
+    if (EXISTS "${_project_dir}/CMakeLists.txt")
+        list(APPEND _project_files "${_project_dir}/CMakeLists.txt")
+        file(READ "${_project_dir}/CMakeLists.txt" _one)
+        get_filename_component(_project_name "${_project_dir}" NAME)
+        string(APPEND _generated "\n### project ${_project_name} ###\n${_one}")
+    endif ()
+endforeach ()
+
+if (DEFINED EXPECT_SUITES AND NOT EXPECT_SUITES STREQUAL "")
+    set(E2E_SUITES)
+    if (EXISTS "${_tests_base}/suites.cmake")
+        include("${_tests_base}/suites.cmake")
+    endif ()
+    string(REPLACE "|" ";" _expected_suites "${EXPECT_SUITES}")
+    if (NOT "${E2E_SUITES}" STREQUAL "${_expected_suites}")
+        list(APPEND _failures "manifest lists [${E2E_SUITES}], expected [${_expected_suites}]")
+    endif ()
+    list(LENGTH _expected_suites _expected_project_count)
+    list(LENGTH _project_files _actual_project_count)
+    if (NOT _expected_project_count EQUAL _actual_project_count)
+        list(APPEND _failures "generated ${_actual_project_count} project(s), expected ${_expected_project_count}")
+    endif ()
 endif ()
 
 function(_check_patterns _patterns _subject _subject_name _must_match _out)
@@ -100,6 +129,40 @@ if (DEFINED NOT_MATCH)
 endif ()
 if (DEFINED LOG_MATCH)
     _check_patterns("${LOG_MATCH}" "${_log}" "configure output" TRUE _failures)
+endif ()
+
+# Building every suite and running ctest over the result exercises the whole lower half of the
+# framework: the generated projects, the build loop, the aggregating CTestTestfile, and the test
+# harness each test runs through.
+if (BUILD_SUITES AND NOT _failures)
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}"
+            "-DTESTS_BASE_DIR=${_tests_base}"
+            "-DBUILD_DIR=${_build}/suites"
+            -P "${CONFIGURE_DIR}/build_suites.cmake"
+        RESULT_VARIABLE _build_result
+        OUTPUT_VARIABLE _build_log
+        ERROR_VARIABLE _build_log
+    )
+    if (NOT "${_build_result}" STREQUAL "0")
+        list(APPEND _failures "building the generated suites failed")
+        set(_log "${_log}\n--- build ---\n${_build_log}")
+    else ()
+        execute_process(
+            COMMAND "${CMAKE_CTEST_COMMAND}"
+            WORKING_DIRECTORY "${_build}/suites"
+            RESULT_VARIABLE _ctest_result
+            OUTPUT_VARIABLE _ctest_log
+            ERROR_VARIABLE _ctest_log
+        )
+        set(_log "${_log}\n--- ctest ---\n${_ctest_log}")
+        if (NOT "${_ctest_result}" STREQUAL "0")
+            list(APPEND _failures "ctest over the built suites failed")
+        endif ()
+        if (DEFINED CTEST_MATCH AND NOT CTEST_MATCH STREQUAL "")
+            _check_patterns("${CTEST_MATCH}" "${_ctest_log}" "ctest output" TRUE _failures)
+        endif ()
+    endif ()
 endif ()
 
 if (_failures)

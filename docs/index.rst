@@ -62,8 +62,9 @@ A minimal test suite definition::
 
 Where things end up in the build tree::
 
-    tests/                          generated test project and acquired repositories
-    tests/CMakeLists.txt            generated: one add_test() per target
-    build-build-release/            where CTest runs
-    build-build-release/test_runs/  one directory per test, holding its captured output
+    tests/                            acquired repositories
+    tests/_projects/<suite>/          generated: one CMake project per test suite
+    tests/suites.cmake                generated: the suites that produced a project
+    build-build-release/              where CTest runs; one build tree per suite
+    build-build-release/<suite>/test_runs/   one directory per test, with its captured output
     remote_database/                the test database, if it was cloned

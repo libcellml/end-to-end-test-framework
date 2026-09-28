@@ -206,7 +206,6 @@ Errors --- these would break a run:
 * ``TEST_TARGETS`` with no ``TEST_CMAKELISTS_DIR``, so the targets are never built;
 * a ``CMAKE_DEFS`` entry that is not ``NAME=value`` or has an empty name;
 * a ``TARGETS_ENV`` entry that is not ``NAME=value``;
-* a compiled target name used by more than one suite, which collides in the generated project;
 * an external reference that cannot be downloaded, is empty, or is itself a reference
   (with ``CHECK_REFERENCES=ON``).
 

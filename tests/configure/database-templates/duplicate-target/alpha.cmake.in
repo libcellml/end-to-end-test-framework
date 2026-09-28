@@ -1,0 +1,5 @@
+# Configured at build time so the absolute path to the fixture repository is correct wherever the
+# framework is checked out.
+set(TEST_GIT_REPO "@REPOS_DIR@/alpha")
+set(TEST_CMAKELISTS_DIR .)
+set(TEST_TARGETS shared alpha_only)

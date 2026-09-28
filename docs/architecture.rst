@@ -29,8 +29,8 @@ The pipeline
       +-- process_tests      fetch the test database
       +-- compare_app        clone and build numdiff
       +-- acquire_tests      clone every repository named by the database
-      +-- configure_tests    generate tests/CMakeLists.txt from the database
-      +-- build_tests        configure and build tests/, registering CTest tests
+      +-- configure_tests    generate one project per suite from the database
+      +-- build_tests        configure and build each suite, registering CTest tests
       |
     ctest                                  <-- you run this
       |
@@ -50,8 +50,9 @@ Directory                    Contents
 ===========================  ================================================================
 ``build-acquire-release``    Build tree for the ``acquire`` sub-project.
 ``build-configure-release``  Build tree for the ``configure`` sub-project.
-``build-build-release``      Build tree for the generated test project. **CTest runs here.**
-``tests``                    Source tree of the generated test project (see below).
+``build-build-release``      Holds one build tree per test suite. **CTest runs here.**
+``tests``                    Acquired repositories, plus the generated projects under
+                             ``_projects`` (see below).
 ``remote_database``          The test database, when it was cloned from a remote repository.
 ``install``                  Install prefix for ``numdiff``.
 ===========================  ================================================================
@@ -131,10 +132,14 @@ and generates two files into ``<build>/tests``:
     A copy of ``configure/run_test.cmake`` with ``@NUMDIFF_EXE@`` substituted for the path to the
     built ``numdiff``. This is the harness every test is run through.
 
-``CMakeLists.txt``
-    The generated test project. It is built up by repeated ``file(APPEND ...)`` calls: a preamble
-    that finds libCellML, then one ``add_subdirectory()`` per CMake directory named by the
-    database, then one ``add_test()`` per target.
+``_projects/<suite>/CMakeLists.txt``
+    One complete CMake project per test suite, built up by repeated ``file(APPEND ...)`` calls: a
+    preamble that finds libCellML, then one ``add_subdirectory()`` per CMake directory the suite
+    names, then one ``add_test()`` per target. A suite that defines only Python tests needs
+    neither, so its project declares ``LANGUAGES NONE`` and does not look for libCellML.
+
+``suites.cmake``
+    A manifest naming the suites that produced a project, read by the build phase.
 
 The generation loop iterates over every suite, and within each suite over the two prefixes
 ``TEST_`` (compiled C++ targets) and ``PYTEST_`` (Python scripts). For each prefix it runs two
@@ -171,9 +176,33 @@ straight through.
 Phase 4 --- build
 =================
 
-``build_tests`` configures ``<build>/tests`` into ``build-build-*`` and builds it.
-This compiles every example program and registers every ``add_test()`` call.
-After this phase, ``ctest`` has something to run.
+``build_tests`` runs ``configure/build_suites.cmake``, which reads the manifest and, for each
+suite, configures its project into ``build-build-*/<suite>`` and builds it. This compiles every
+example program and registers every ``add_test()`` call. It then writes
+``build-build-*/CTestTestfile.cmake``, which ``subdirs()`` into each suite's build directory so
+that CTest run from the top of the build tree finds every test.
+
+The loop lives in a script rather than in the custom target because how many suites there are is
+not known until the database has been read, which happens at build time.
+
+Why a project per suite
+-----------------------
+
+CMake target names are global within a project. Adding every suite to one project means two
+documentation repositories that happen to define a target with the same name collide, and the whole
+run fails to generate rather than any single test failing:
+
+.. code-block:: text
+
+    add_executable cannot create target "shared" because another target with
+    the same name already exists.
+
+That includes targets a database never lists --- an internal helper library, say --- so it cannot be
+checked for in advance. Giving each suite its own project makes the collision impossible. It also
+stops CMake variables set for one suite leaking into the next, and lets a suite of Python tests
+skip the compiler and libCellML entirely.
+
+The cost is one configure step per suite instead of one overall.
 
 The test harness
 ================
@@ -189,7 +218,7 @@ splits it back into a list before executing.
 
 The harness then:
 
-1. Creates and enters ``<build-build>/test_runs/<TEST_NAME>`` as the working directory. Each test
+1. Creates and enters ``<build-build>/<suite>/test_runs/<TEST_NAME>`` as the working directory. Each test
    gets its own directory, so any files a program writes land somewhere predictable and tests do
    not interfere with each other.
 2. Runs the command, capturing stdout **and** stderr into one variable.

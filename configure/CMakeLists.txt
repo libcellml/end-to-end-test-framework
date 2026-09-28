@@ -50,19 +50,17 @@ if (_python_needed)
     message(STATUS "Python tests will run with: ${PYTHON_COMMAND}")
 endif ()
 
-set(SETUP_CMAKELISTS_FILE ${TESTS_BASE_DIR}/CMakeLists.txt)
-file(WRITE ${SETUP_CMAKELISTS_FILE} "
-cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
-set(CMAKE_OSX_DEPLOYMENT_TARGET \"11\" CACHE STRING \"Minimum OS X deployment version\")
+# Each suite gets its own CMake project, built in its own directory.
+#
+# Target names are global within a CMake project, so adding every suite to one project means two
+# documentation repositories that happen to define a target with the same name collide and the
+# whole run fails to generate. That includes targets the database never lists and so cannot be
+# checked for in advance. Separate projects make the collision impossible, and stop CMake
+# variables set for one suite leaking into the next.
+set(PROJECTS_DIR "${TESTS_BASE_DIR}/_projects")
+file(MAKE_DIRECTORY "${PROJECTS_DIR}")
 
-project(TestRunner VERSION 1.0 LANGUAGES CXX)
-
-enable_testing()
-
-set(CMAKE_PREFIX_PATH \"${CMAKE_PREFIX_PATH}\")
-set(libCellML_DIR \"${libCellML_DIR}\")
-find_package(libCellML REQUIRED CONFIG)
-")
+set(_generated_suites)
 
 set(TEST_INDEX 0)
 while(TEST_INDEX LESS TEST_COUNT)
@@ -80,6 +78,42 @@ while(TEST_INDEX LESS TEST_COUNT)
     else ()
         set(_current_root "${TESTS_BASE_DIR}/${_current_name}")
     endif ()
+
+    list(LENGTH TEST_${TEST_INDEX}_TARGETS _compiled_target_count)
+    list(LENGTH PYTEST_${TEST_INDEX}_TARGETS _python_target_count)
+    if (_compiled_target_count EQUAL 0 AND _python_target_count EQUAL 0)
+        # Nothing to run, so no project to generate.
+        continue()
+    endif ()
+
+    set(_suite_project_dir "${PROJECTS_DIR}/${_current_name}")
+    file(MAKE_DIRECTORY "${_suite_project_dir}")
+    set(SETUP_CMAKELISTS_FILE "${_suite_project_dir}/CMakeLists.txt")
+
+    # A suite name comes from a file name, which need not be a valid CMake project name.
+    string(MAKE_C_IDENTIFIER "${_current_name}" _suite_project_name)
+
+    # A suite of Python tests alone needs neither a compiler nor libCellML.
+    if (_compiled_target_count GREATER 0)
+        set(_suite_languages CXX)
+        set(_suite_preamble "
+set(CMAKE_PREFIX_PATH \"${CMAKE_PREFIX_PATH}\")
+set(libCellML_DIR \"${libCellML_DIR}\")
+find_package(libCellML REQUIRED CONFIG)
+")
+    else ()
+        set(_suite_languages NONE)
+        set(_suite_preamble "")
+    endif ()
+
+    file(WRITE ${SETUP_CMAKELISTS_FILE} "
+cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
+set(CMAKE_OSX_DEPLOYMENT_TARGET \"11\" CACHE STRING \"Minimum OS X deployment version\")
+
+project(${_suite_project_name} VERSION 1.0 LANGUAGES ${_suite_languages})
+
+enable_testing()
+${_suite_preamble}")
 
     foreach(_prefix TEST_ PYTEST_)
         unset(_current_targets)
@@ -106,38 +140,33 @@ while(TEST_INDEX LESS TEST_COUNT)
             list(LENGTH _current_cmakelists_dirs CMAKELISTS_DIR_COUNT)
             set(CMAKELISTS_DIR_INDEX 0)
             while(CMAKELISTS_DIR_INDEX LESS CMAKELISTS_DIR_COUNT)
-                set(_current_unmodified_name ${_current_name})
                 list(GET _current_cmakelists_dirs ${CMAKELISTS_DIR_INDEX} _current_cmakelists_dir)
                 unset(_current_cmake_defs)
                 if (_current_cmake_defs_list)
                     list(GET _current_cmake_defs_list ${CMAKELISTS_DIR_INDEX} _current_cmake_defs)
                 endif ()
                 math(EXPR CMAKELISTS_DIR_INDEX "${CMAKELISTS_DIR_INDEX}+1")
-                if (IS_ABSOLUTE "${_current_git_repo}")
-                    if (CMAKELISTS_DIR_COUNT GREATER 1)
-                        set(_current_name ${_current_name}_${CMAKELISTS_DIR_INDEX})
-                    endif ()
-                    if (_prefix STREQUAL "TEST_" AND EXISTS "${_current_git_repo}/${_current_cmakelists_dir}/CMakeLists.txt")
+                # The generated project lives outside the repository it adds, so the source
+                # directory is absolute and a binary directory has to be named explicitly.
+                string(MAKE_C_IDENTIFIER "${_current_cmakelists_dir}" _binary_name)
+                string(REGEX REPLACE "^_+$" "" _binary_name "${_binary_name}")
+                if (_binary_name STREQUAL "")
+                    set(_binary_name "${_suite_project_name}")
+                endif ()
+                set(_binary_name "${_binary_name}_${CMAKELISTS_DIR_INDEX}")
+
+                if (_prefix STREQUAL "TEST_")
+                    set(_add_subdirectory_source "${_current_root}/${_current_cmakelists_dir}")
+                    if (EXISTS "${_add_subdirectory_source}/CMakeLists.txt" OR NOT IS_ABSOLUTE "${_current_git_repo}")
                         if (_current_cmake_defs)
                             write_pre_test("${SETUP_CMAKELISTS_FILE}" "${_current_cmake_defs}" "${_current_root}")
                         endif ()
-                        file(APPEND ${SETUP_CMAKELISTS_FILE} "add_subdirectory(${_current_git_repo}/${_current_cmakelists_dir} ${_current_name})\n")
-                        if (_current_cmake_defs)
-                            write_post_test("${SETUP_CMAKELISTS_FILE}" "${_current_cmake_defs}")
-                        endif ()
-                    endif ()
-                else ()
-                    if (_prefix STREQUAL "TEST_")
-                        if (_current_cmake_defs)
-                            write_pre_test("${SETUP_CMAKELISTS_FILE}" "${_current_cmake_defs}" "${_current_root}")
-                        endif ()
-                        file(APPEND ${SETUP_CMAKELISTS_FILE} "add_subdirectory(${_current_name}/${_current_cmakelists_dir})\n")
+                        file(APPEND ${SETUP_CMAKELISTS_FILE} "add_subdirectory(\"${_add_subdirectory_source}\" \"${_binary_name}\")\n")
                         if (_current_cmake_defs)
                             write_post_test("${SETUP_CMAKELISTS_FILE}" "${_current_cmake_defs}")
                         endif ()
                     endif ()
                 endif ()
-                set(_current_name ${_current_unmodified_name})
             endwhile()
 
             # Iterate over the current targets and write out a test specifically for that target.
@@ -157,7 +186,7 @@ while(TEST_INDEX LESS TEST_COUNT)
                     set(_current_name ${_current_name}/${_current_target})
                 endif ()
                 include(${write_test_module})
-                write_test(${SETUP_CMAKELISTS_FILE} ${_current_name} ${_current_target} ${_current_root}
+                write_test("${SETUP_CMAKELISTS_FILE}" "${_current_name}" "${_current_target}" "${_current_root}"
                     "${_current_expected_results}"
                     "${_current_env}"
                     "${_current_args}")
@@ -166,7 +195,13 @@ while(TEST_INDEX LESS TEST_COUNT)
             endwhile()
         endif ()
     endforeach()
+
+    file(APPEND ${SETUP_CMAKELISTS_FILE} "\n")
+    list(APPEND _generated_suites "${_current_name}")
 endwhile()
 
-file(APPEND ${SETUP_CMAKELISTS_FILE} "\n")
+# The build phase reads this to know which projects to configure and build, and CTest is pointed
+# at each of their build directories in turn.
+file(WRITE "${TESTS_BASE_DIR}/suites.cmake"
+    "# Generated. Test suites with a project under _projects/, in the order they were read.\nset(E2E_SUITES \"${_generated_suites}\")\n")
 

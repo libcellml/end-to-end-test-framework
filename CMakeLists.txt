@@ -177,9 +177,19 @@ add_custom_target(configure_tests
     WORKING_DIRECTORY "${CONFIGURE_BUILD_DIR}"
 )
 
+# Each suite is a project of its own, so the build loops over however many the database defined.
+# The configuration name is resolved here, where a generator expression still works, rather than
+# inside the script.
+if (IS_MULTI_CONFIG)
+    set(_BUILD_SUITES_CONFIG -DBUILD_CONFIG=$<CONFIGURATION>)
+endif()
+
 add_custom_target(build_tests ALL
-    COMMAND ${CMAKE_COMMAND} "${CMAKE_CURRENT_BINARY_DIR}/tests"
-    COMMAND ${CMAKE_COMMAND} --build . ${MULTICONFIG_BUILD_CONFIG}
+    COMMAND ${CMAKE_COMMAND}
+        -DTESTS_BASE_DIR=${CMAKE_CURRENT_BINARY_DIR}/tests
+        -DBUILD_DIR=${BUILD_BUILD_DIR}
+        ${_BUILD_SUITES_CONFIG}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/configure/build_suites.cmake
     COMMENT "Build tests."
     DEPENDS configure_tests
     WORKING_DIRECTORY "${BUILD_BUILD_DIR}"
