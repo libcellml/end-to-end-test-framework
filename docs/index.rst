@@ -48,6 +48,11 @@ Validate a database without building anything::
 
     cmake -DTEST_DB=<directory> -P validate/validate_test_db.cmake
 
+Run the validator's own test suite::
+
+    cmake -S validate/tests -B build-validator-tests
+    ctest --test-dir build-validator-tests --output-on-failure
+
 A minimal test suite definition::
 
     set(TEST_GIT_REPO      "https://github.com/me/my-examples")

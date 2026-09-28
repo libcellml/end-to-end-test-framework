@@ -266,6 +266,40 @@ Checking the database out at the workspace root rather than in a subdirectory ma
 emits GitHub Actions annotations for every finding, and their paths are relative to ``TEST_DB``, so
 this layout puts each finding on the right line of the pull request diff.
 
+Testing the validator
+---------------------
+
+The validator has its own test suite, so a change to it can be made with some confidence. It is a
+standalone CMake project needing no compiler, no libCellML and no network::
+
+    cmake -S validate/tests -B build-validator-tests
+    ctest --test-dir build-validator-tests --output-on-failure
+
+Each test runs the validator against one fixture database under ``validate/tests/fixtures/`` and
+asserts both the exit status and a distinctive fragment of the message. Both halves matter: a test
+that checked only the status would pass if the validator rejected a database for the wrong reason,
+and one that checked only the message would pass if the validator reported a problem and then
+exited zero anyway.
+
+Add ``-DVALIDATOR_TEST_NETWORK=ON`` to include the tests that resolve an external reference over
+the network. They are off by default so the suite runs offline.
+
+To add a case, create a directory under ``fixtures/`` containing the suite definitions that
+reproduce it and register it in ``validate/tests/CMakeLists.txt``::
+
+    add_validator_test(invalid-my-new-case FAIL
+        MATCH "the distinctive part of the message")
+
+Fixture names are prefixed ``valid-``, ``invalid-`` or ``warn-`` after what they are expected to do.
+Keep ``MATCH`` patterns free of regular expression metacharacters --- the validator's messages
+contain ``|``, ``(`` and ``.``, so match on a fragment of plain prose rather than a whole sentence.
+
+Some of the fixtures exist because of a specific mistake. The three ``-single-`` cases cover a
+one-element list whose only element is ``NOTFOUND`` or ``NONE``: CMake's ``if()`` evaluates those as
+false, so an emptiness check written as ``if (MY_LIST)`` skips them, and a length mismatch goes
+unreported. Emptiness in the validator is always tested with ``list(LENGTH)`` or ``DEFINED`` for
+that reason.
+
 Keeping a database current
 ==========================
 

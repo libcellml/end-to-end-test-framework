@@ -1,3 +1,5 @@
 # Qt Creator project files.
 CMakeLists.txt.user
 
+# Build directory for the validator self-test.
+build-validator-tests/
