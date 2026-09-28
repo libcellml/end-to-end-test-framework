@@ -1,0 +1,6 @@
+set(TEST_GIT_REPO "https://example.com/both")
+set(TEST_COMMIT_HASH "b0111111")
+set(TEST_CMAKELISTS_DIR code)
+set(TEST_TARGETS both_prog)
+set(PYTEST_TARGETS code/both.py)
+set(PYTEST_TARGETS_ENV "PYTHONPATH=@TEST_ROOT@/utilities")

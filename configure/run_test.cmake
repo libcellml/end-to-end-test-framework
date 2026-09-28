@@ -15,7 +15,7 @@ endif ()
 
 set(TEST_WORKING_DIR ${CMAKE_CURRENT_BINARY_DIR}/test_runs/${TEST_NAME})
 
-string(REPLACE "|" ";" TEST_CMD ${TEST_CMD})
+string(REPLACE "|" ";" TEST_CMD "${TEST_CMD}")
 
 message(STATUS "Running test command: ${TEST_CMD}")
 message(STATUS "Working directory: ${TEST_WORKING_DIR}")

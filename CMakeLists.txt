@@ -60,6 +60,13 @@ if (DEFINED COMPARE_APP_HASH)
 endif()
 unset(COMPARE_APP_HASH CACHE)
 
+set(_ANNOTATION "The Python interpreter used to run Python tests. Found automatically if unset.")
+set(E2E_PYTHON_EXECUTABLE "" CACHE STRING ${_ANNOTATION})
+if (DEFINED PYTHON_EXECUTABLE)
+    set(E2E_PYTHON_EXECUTABLE ${PYTHON_EXECUTABLE} CACHE STRING ${_ANNOTATION} FORCE)
+endif()
+unset(PYTHON_EXECUTABLE CACHE)
+
 set(_ANNOTATION "Run tests in verbose mode.")
 set(E2E_TEST_VERBOSE OFF CACHE BOOL ${_ANNOTATION})
 if (DEFINED TEST_VERBOSE)
@@ -162,6 +169,7 @@ add_custom_target(configure_tests
         -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}"
         -DlibCellML_DIR="${libCellML_DIR}"
         -DCOMPARE_EXE="${CMAKE_CURRENT_BINARY_DIR}/install/bin/numdiff"
+        -DE2E_PYTHON_EXECUTABLE="${E2E_PYTHON_EXECUTABLE}"
         ${CMAKE_CURRENT_SOURCE_DIR}/configure
     COMMAND ${CMAKE_COMMAND} --build . ${MULTICONFIG_BUILD_CONFIG}
     COMMENT "Configure tests."

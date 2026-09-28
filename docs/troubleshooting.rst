@@ -67,9 +67,7 @@ references are not supported).
 The downloaded file is left at ``<build>/tests/ExternalReference/<suite-name>.cmake`` when it parsed,
 and removed when the transfer itself failed.
 
-A suite with ``PYTEST_TARGETS`` but no ``TEST_TARGETS`` will also behave oddly, because the
-repository root for Python targets is only computed while processing compiled targets. Give every
-suite at least one compiled target.
+
 
 Test failures
 =============
@@ -142,12 +140,19 @@ path via ``PYTEST_TARGETS_ENV``.
 
     set(PYTEST_TARGETS_ENV "PYTHONPATH=@TEST_ROOT@/resources/code/utilities/")
 
-Python tests fail with ``python: command not found``
------------------------------------------------------
+``no Python interpreter was found``
+------------------------------------
 
-The interpreter is hard coded as the bare command ``python``. On a system where only ``python3``
-exists, run ``ctest`` from inside a virtual environment, or make ``python`` available on the
-``PATH``.
+The database defines Python tests and ``find_package(Python3)`` came up empty. Install Python, or
+name one explicitly at the top-level configure step::
+
+    cmake -DPYTHON_EXECUTABLE=/path/to/python ../end-to-end-test-framework
+
+The same option points the tests at a virtual environment's interpreter, which is the usual way to
+make the libCellML Python bindings importable. The interpreter is resolved once at configure time
+and baked into each test, so changing it means reconfiguring, not just re-running ``ctest``.
+
+A database with no Python tests never looks for an interpreter at all.
 
 Stale state
 ===========

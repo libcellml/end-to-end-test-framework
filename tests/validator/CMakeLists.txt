@@ -96,6 +96,7 @@ add_validator_test(valid-defs-aligned             PASS NOT_MATCH "${_NO_FINDINGS
 add_validator_test(valid-defs-two-definitions     PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-defs-extra-equals        PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-python-alongside-cxx     PASS NOT_MATCH "${_NO_FINDINGS}")
+add_validator_test(valid-python-only              PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-multiple-suites          PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-external-reference       PASS NOT_MATCH "${_NO_FINDINGS}")
 
@@ -116,8 +117,6 @@ add_validator_test(invalid-short-args-multi FAIL
     MATCH "TEST_TARGETS_ARGS has 2 entries but TEST_TARGETS has 3")
 add_validator_test(invalid-targets-without-cmakelists-dir FAIL
     MATCH "no TEST_CMAKELISTS_DIR")
-add_validator_test(invalid-python-only FAIL
-    MATCH "PYTEST_TARGETS but no TEST_TARGETS")
 add_validator_test(invalid-defs-no-equals FAIL
     MATCH "is not of the form NAME=value")
 add_validator_test(invalid-defs-empty-name FAIL

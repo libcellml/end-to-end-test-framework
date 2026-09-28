@@ -140,9 +140,6 @@ macro(_v_check_definition _v_file _v_is_reference)
 
         list(LENGTH TEST_TARGETS _v_n_test_targets)
         list(LENGTH PYTEST_TARGETS _v_n_pytest_targets)
-        if (_v_n_pytest_targets GREATER 0 AND _v_n_test_targets EQUAL 0)
-            _v_error("${_v_file}" "defines PYTEST_TARGETS but no TEST_TARGETS; the framework only computes the repository root while processing compiled targets, so the Python tests would use the wrong root")
-        endif ()
 
         list(LENGTH PYTEST_CMAKELISTS_DIR _v_n_pytest_dirs)
         if (_v_n_pytest_dirs GREATER 0)

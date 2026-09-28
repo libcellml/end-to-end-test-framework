@@ -1,0 +1,5 @@
+set(TEST_GIT_REPO "https://example.com/multi")
+set(TEST_COMMIT_HASH "mu1t111")
+set(TEST_CMAKELISTS_DIR .)
+set(TEST_TARGETS first second)
+set(PYTEST_TARGETS first.py second.py)

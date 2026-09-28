@@ -236,23 +236,19 @@ a broken reference stops the run rather than quietly removing a suite from it.
 Python tests
 ============
 
-Python targets are run as ``python <repository>/<target>``, with arguments resolved the same way as
-for compiled targets.
+Python targets are run as ``<interpreter> <repository>/<target>``, with arguments resolved the same
+way as for compiled targets.
 
-* The interpreter is the bare command ``python``. On a system where only ``python3`` is on the
-  ``PATH``, or where the libCellML bindings are installed into a virtual environment, activate that
-  environment before running ``ctest``.
+* A suite may define Python targets and no compiled targets at all. ``TEST_CMAKELISTS_DIR`` is only
+  needed for compiled targets, so a Python-only suite can leave it unset.
+* The interpreter is found with CMake's ``find_package(Python3)`` at configure time, and only when
+  the database actually defines Python tests --- a database of compiled tests alone does not need
+  Python present. Pass ``-DPYTHON_EXECUTABLE=<path>`` at the top-level configure step to choose a
+  particular one, such as the interpreter of a virtual environment.
 * Nothing in the framework puts the libCellML Python bindings on ``sys.path``. Either install them
-  into the active environment or add them via ``PYTEST_TARGETS_ENV``.
+  into the interpreter being used or add them via ``PYTEST_TARGETS_ENV``.
 * ``PYTEST_CMAKELISTS_DIR`` is read but never used --- Python scripts are not built. In practice it
   should be left unset.
-
-.. warning::
-
-   A suite that defines ``PYTEST_TARGETS`` but **no** ``TEST_TARGETS`` will not work. The repository
-   root used for Python targets is only computed while processing the ``TEST_`` prefix, so a
-   Python-only suite either fails or, worse, silently uses the root of whichever suite was processed
-   before it. Until this is fixed, give every suite at least one compiled target.
 
 A complete example
 ==================

@@ -8,7 +8,7 @@
 cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11" CACHE STRING "Minimum OS X deployment version")
 
-project(testsetup VERSION 1.0 LANGUAGES CXX)
+project(testsetup VERSION 1.0 LANGUAGES NONE)
 
 include(ReadTestDB)
 include(WriteTest)
@@ -18,6 +18,37 @@ set(NUMDIFF_EXE "${COMPARE_EXE}")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/run_test.cmake ${TESTS_BASE_DIR} @ONLY)
 
 read_test_db("${DB_DIR}" "${TESTS_BASE_DIR}")
+
+# Resolve the Python interpreter up front, but only if some suite defines Python tests, so that
+# a database of compiled tests alone does not require Python to be present.
+set(_python_needed FALSE)
+set(_scan_index 0)
+while(_scan_index LESS TEST_COUNT)
+    math(EXPR _scan_index "${_scan_index}+1")
+    list(LENGTH PYTEST_${_scan_index}_TARGETS _scan_count)
+    if (_scan_count GREATER 0)
+        set(_python_needed TRUE)
+    endif ()
+endwhile()
+
+if (_python_needed)
+    if (NOT E2E_PYTHON_EXECUTABLE STREQUAL "")
+        if (NOT EXISTS "${E2E_PYTHON_EXECUTABLE}")
+            message(FATAL_ERROR
+                "PYTHON_EXECUTABLE is set to '${E2E_PYTHON_EXECUTABLE}', which does not exist.")
+        endif ()
+        set(PYTHON_COMMAND "${E2E_PYTHON_EXECUTABLE}")
+    else ()
+        find_package(Python3 COMPONENTS Interpreter)
+        if (NOT Python3_Interpreter_FOUND)
+            message(FATAL_ERROR
+                "The test database defines Python tests but no Python interpreter was found.\n"
+                "Install Python, or pass -DPYTHON_EXECUTABLE=<path> to the configure step.")
+        endif ()
+        set(PYTHON_COMMAND "${Python3_EXECUTABLE}")
+    endif ()
+    message(STATUS "Python tests will run with: ${PYTHON_COMMAND}")
+endif ()
 
 set(SETUP_CMAKELISTS_FILE ${TESTS_BASE_DIR}/CMakeLists.txt)
 file(WRITE ${SETUP_CMAKELISTS_FILE} "
@@ -40,6 +71,15 @@ while(TEST_INDEX LESS TEST_COUNT)
     set(_current_name ${TEST_${TEST_INDEX}_NAME})
     set(_current_git_repo ${TEST_${TEST_INDEX}_GIT_REPO})
     set(_current_commit_hash ${TEST_${TEST_INDEX}_COMMIT_HASH})
+
+    # An absolute TEST_GIT_REPO is a checkout on disk and is used where it is; anything else was
+    # cloned by the acquire phase into TESTS_BASE_DIR under the suite name. Either way this is a
+    # property of the suite, so it is settled here rather than inside the loops below.
+    if (IS_ABSOLUTE "${_current_git_repo}")
+        set(_current_root "${_current_git_repo}")
+    else ()
+        set(_current_root "${TESTS_BASE_DIR}/${_current_name}")
+    endif ()
 
     foreach(_prefix TEST_ PYTEST_)
         unset(_current_targets)
@@ -77,7 +117,6 @@ while(TEST_INDEX LESS TEST_COUNT)
                     if (CMAKELISTS_DIR_COUNT GREATER 1)
                         set(_current_name ${_current_name}_${CMAKELISTS_DIR_INDEX})
                     endif ()
-                    set(_current_root ${_current_git_repo})
                     if (_prefix STREQUAL "TEST_" AND EXISTS "${_current_git_repo}/${_current_cmakelists_dir}/CMakeLists.txt")
                         if (_current_cmake_defs)
                             write_pre_test("${SETUP_CMAKELISTS_FILE}" "${_current_cmake_defs}" "${_current_root}")
@@ -88,7 +127,6 @@ while(TEST_INDEX LESS TEST_COUNT)
                         endif ()
                     endif ()
                 else ()
-                    set(_current_root ${TESTS_BASE_DIR}/${_current_name})
                     if (_prefix STREQUAL "TEST_")
                         if (_current_cmake_defs)
                             write_pre_test("${SETUP_CMAKELISTS_FILE}" "${_current_cmake_defs}" "${_current_root}")

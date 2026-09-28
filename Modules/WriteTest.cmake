@@ -1,11 +1,13 @@
 function(write_target_test OUTPUT_FILENAME TEST_NAME TEST_TARGET TEST_ROOT TEST_EXPECTED_RESULTS TEST_ENV)
-    set(TEST_CMD \$<TARGET_FILE:${TEST_TARGET}>)
-    _write_test_to_file(${OUTPUT_FILENAME} ${TEST_NAME} ${TEST_CMD} ${TEST_ROOT} "${TEST_EXPECTED_RESULTS}" "${TEST_ENV}" ${ARGN})
+    set(TEST_CMD "\$<TARGET_FILE:${TEST_TARGET}>")
+    _write_test_to_file("${OUTPUT_FILENAME}" "${TEST_NAME}" "${TEST_CMD}" "${TEST_ROOT}" "${TEST_EXPECTED_RESULTS}" "${TEST_ENV}" ${ARGN})
 endfunction()
 
 macro(write_python_test OUTPUT_FILENAME TEST_NAME TEST_TARGET TEST_ROOT TEST_EXPECTED_RESULTS TEST_ENV)
-    set(TEST_CMD python|${TEST_ROOT}/${TEST_TARGET})
-    _write_test_to_file(${OUTPUT_FILENAME} py${TEST_NAME} ${TEST_CMD} ${TEST_ROOT} "${TEST_EXPECTED_RESULTS}" "${TEST_ENV}" ${ARGN})
+    # PYTHON_COMMAND is resolved once by the configure project. Quoted throughout because an
+    # interpreter path can contain spaces.
+    set(TEST_CMD "${PYTHON_COMMAND}|${TEST_ROOT}/${TEST_TARGET}")
+    _write_test_to_file("${OUTPUT_FILENAME}" "py${TEST_NAME}" "${TEST_CMD}" "${TEST_ROOT}" "${TEST_EXPECTED_RESULTS}" "${TEST_ENV}" ${ARGN})
 endmacro()
 
 function(_write_test_to_file OUTPUT_FILENAME TEST_NAME TEST_CMD TEST_ROOT TEST_EXPECTED_RESULTS TEST_ENV)
@@ -24,7 +26,8 @@ function(_write_test_to_file OUTPUT_FILENAME TEST_NAME TEST_CMD TEST_ROOT TEST_E
         set(TEST_CMD "${TEST_CMD}|${_extended_args}")
     endforeach()
     if (TEST_EXPECTED_RESULTS AND NOT TEST_EXPECTED_RESULTS STREQUAL "NOTFOUND")
-        set(EXPECTED_OUTPUT_ARGUMENT -DEXPECTED_OUTPUT=${TEST_ROOT}/${TEST_EXPECTED_RESULTS})
+        # Pre-quoted, so that nothing is emitted at all when there are no expected results.
+        set(EXPECTED_OUTPUT_ARGUMENT "\"-DEXPECTED_OUTPUT=${TEST_ROOT}/${TEST_EXPECTED_RESULTS}\"")
     endif ()
 
     string(CONFIGURE "${TEST_ENV}" CONFIGURED_TEST_ENV @ONLY)
@@ -34,12 +37,12 @@ function(_write_test_to_file OUTPUT_FILENAME TEST_NAME TEST_CMD TEST_ROOT TEST_E
 file(MAKE_DIRECTORY \${CMAKE_BINARY_DIR}/test_runs/${TEST_NAME})
 add_test(NAME ${TEST_NAME}
    COMMAND ${CMAKE_COMMAND}
-   -DTEST_NAME=${TEST_NAME}
-   -DTEST_CMD=${TEST_CMD}
-   -DTEST_ROOT=${TEST_ROOT}
+   \"-DTEST_NAME=${TEST_NAME}\"
+   \"-DTEST_CMD=${TEST_CMD}\"
+   \"-DTEST_ROOT=${TEST_ROOT}\"
    ${EXPECTED_OUTPUT_ARGUMENT}
-   -DTEST_OUTPUT=\${CMAKE_BINARY_DIR}/test_runs/${TEST_NAME}
-   -P ${TESTS_BASE_DIR}/run_test.cmake
+   \"-DTEST_OUTPUT=\${CMAKE_BINARY_DIR}/test_runs/${TEST_NAME}\"
+   -P \"${TESTS_BASE_DIR}/run_test.cmake\"
 )
 ")
     file(APPEND ${OUTPUT_FILENAME} ${_TMP_OUTPUT})

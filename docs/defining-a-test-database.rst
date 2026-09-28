@@ -204,7 +204,6 @@ Errors --- these would break a run:
 * an index-aligned list that is present but the wrong length, which the framework reports only as
   ``list index: N out of range`` from a generated file;
 * ``TEST_TARGETS`` with no ``TEST_CMAKELISTS_DIR``, so the targets are never built;
-* ``PYTEST_TARGETS`` with no ``TEST_TARGETS``, which resolves against the wrong repository root;
 * a ``CMAKE_DEFS`` entry that is not ``NAME=value`` or has an empty name;
 * a ``TARGETS_ENV`` entry that is not ``NAME=value``;
 * a compiled target name used by more than one suite, which collides in the generated project;

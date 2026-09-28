@@ -49,6 +49,7 @@ The framework provides some options to change the default behaviour.
 TEST_DB              Set the location of the test database that defines the tests.
 TEST_DB_COMMIT_HASH  Set the commit hash of the test database to clone.
 libCellML_DIR        Alternative to specifying CMAKE_PREFIX_PATH if libCellML is installed into a non-standard location.
+PYTHON_EXECUTABLE    The Python interpreter used for Python tests. Found automatically if not set.
 ===================  ===================================================================================================
 
 TEST_DB

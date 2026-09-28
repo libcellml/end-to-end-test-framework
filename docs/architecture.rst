@@ -243,6 +243,9 @@ Suite              Covers
 ``validator``      ``validate/validate_test_db.cmake`` --- the database schema checker. Each case
                    runs it against a fixture database and asserts the exit status *and* a
                    distinctive part of the message.
+``configure``      ``configure/CMakeLists.txt`` --- generating the test project from a database:
+                   test naming, repository roots for compiled and Python targets, and interpreter
+                   resolution. The generated file is read back as text; nothing is built.
 ``run_test``       ``configure/run_test.cmake`` --- the comparison paths: expected output as a
                    directory or as a single file, nested files, missing files, ``.numdiff``
                    siblings, and ``@TEST_ROOT@`` substitution in expected stdout.
