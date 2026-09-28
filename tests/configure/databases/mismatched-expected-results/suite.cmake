@@ -1,0 +1,5 @@
+set(TEST_GIT_REPO "https://example.com/a")
+set(TEST_COMMIT_HASH "abc1234")
+set(TEST_CMAKELISTS_DIR .)
+set(TEST_TARGETS one two three)
+set(TEST_EXPECTED_RESULTS "NOTFOUND")

@@ -17,7 +17,8 @@
       MATCH / NOT_MATCH        Regular expressions the generated projects must or must not match.
                                Every generated project file is concatenated first, so a pattern may
                                come from any of them. Several may be given, separated by '|||'.
-      LOG_MATCH                Regular expression the configure output must match.
+      LOG_MATCH / LOG_NOT_MATCH
+                               Regular expressions the configure output must or must not match.
       EXPECT_SUITES            Pipe-separated suite names the manifest must list, in order.
       BUILD_SUITES             If true, also build every generated project and run ctest over it.
                                Needs a C++ compiler and the stub libCellML.
@@ -129,6 +130,9 @@ if (DEFINED NOT_MATCH)
 endif ()
 if (DEFINED LOG_MATCH)
     _check_patterns("${LOG_MATCH}" "${_log}" "configure output" TRUE _failures)
+endif ()
+if (DEFINED LOG_NOT_MATCH)
+    _check_patterns("${LOG_NOT_MATCH}" "${_log}" "configure output" FALSE _failures)
 endif ()
 
 # Building every suite and running ctest over the result exercises the whole lower half of the

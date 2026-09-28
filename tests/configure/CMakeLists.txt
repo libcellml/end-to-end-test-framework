@@ -38,7 +38,7 @@ find_package(Python3 COMPONENTS Interpreter)
 # add_configure_test(<case> <database> PASS|FAIL [MATCH <a|||b>] [NOT_MATCH <a|||b>]
 #                    [LOG_MATCH <regex>] [ARGS <a>|<b>])
 function(add_configure_test _case _database _expectation)
-    cmake_parse_arguments(_t "BUILD" "MATCH;NOT_MATCH;LOG_MATCH;CTEST_MATCH;EXPECT_SUITES;ARGS" "" ${ARGN})
+    cmake_parse_arguments(_t "BUILD" "MATCH;NOT_MATCH;LOG_MATCH;LOG_NOT_MATCH;CTEST_MATCH;EXPECT_SUITES;ARGS" "" ${ARGN})
 
     set(_database_dir "${DATABASES}/${_database}")
     if (NOT EXISTS "${_database_dir}")
@@ -67,7 +67,7 @@ function(add_configure_test _case _database _expectation)
     if (_t_BUILD)
         list(APPEND _command "-DBUILD_SUITES=TRUE" "-DCONFIGURE_DIR=${CONFIGURE_DIR}")
     endif ()
-    foreach (_option MATCH NOT_MATCH LOG_MATCH CTEST_MATCH EXPECT_SUITES ARGS)
+    foreach (_option MATCH NOT_MATCH LOG_MATCH LOG_NOT_MATCH CTEST_MATCH EXPECT_SUITES ARGS)
         if (_t_${_option})
             if (_option STREQUAL "ARGS")
                 list(APPEND _command "-DEXTRA_ARGS=${_t_ARGS}")
@@ -173,6 +173,39 @@ if (CMAKE_CXX_COMPILER)
 else ()
     message(STATUS "No C++ compiler found; skipping the suites that build fixture projects.")
 endif ()
+
+# ---------------------------------------------------------------------------------------------
+# Index-aligned lists of the wrong length. Reading the database rejects these, naming the suite,
+# the two settings and their counts. LOG_NOT_MATCH pins that we stop before CMake's own
+# 'list index out of range', which is what used to surface instead, from a generated file.
+# ---------------------------------------------------------------------------------------------
+
+set(_RAW_LIST_ERROR "list index: [0-9]+ out of range")
+
+add_configure_test(mismatched-args mismatched-args FAIL
+    LOG_MATCH "TEST_TARGETS_ARGS has 2 entries|||TEST_TARGETS has 3 entries|||suite 'suite'"
+    LOG_NOT_MATCH "${_RAW_LIST_ERROR}")
+
+add_configure_test(mismatched-expected-results mismatched-expected-results FAIL
+    LOG_MATCH "TEST_EXPECTED_RESULTS has 1 entries|||TEST_TARGETS has 3 entries"
+    LOG_NOT_MATCH "${_RAW_LIST_ERROR}")
+
+add_configure_test(mismatched-defs mismatched-defs FAIL
+    LOG_MATCH "TEST_CMAKE_DEFS has 2 entries|||TEST_CMAKELISTS_DIR has 3 entries"
+    LOG_NOT_MATCH "${_RAW_LIST_ERROR}")
+
+# The PYTEST_ prefix is checked the same way, and the message says which prefix is at fault.
+add_configure_test(mismatched-pytest-args mismatched-pytest-args FAIL
+    LOG_MATCH "PYTEST_TARGETS_ARGS has 1 entries|||PYTEST_TARGETS has 2 entries"
+    LOG_NOT_MATCH "${_RAW_LIST_ERROR}")
+
+# The message has to say how to fix it, not just that something is wrong.
+add_configure_test(mismatch-message-is-actionable mismatched-args FAIL
+    LOG_MATCH "index-aligned|||Use NOTFOUND where an entry has nothing to say|||defined in: .*mismatched-args")
+
+# The mirror: lists padded to the right length, of every kind at once, must still configure.
+add_configure_test(aligned-with-placeholders aligned-with-placeholders PASS
+    EXPECT_SUITES "suite")
 
 # A database with no Python tests must not require Python at all.
 add_configure_test(no-python-no-interpreter cxx-only PASS

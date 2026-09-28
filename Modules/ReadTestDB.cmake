@@ -108,6 +108,35 @@ macro(read_test_db_file _FILE _TEST_BASE_DIR)
     _process_reference_tests(${_TEST_BASE_DIR})
 endmacro()
 
+# A test suite's settings come in two groups of index-aligned lists: TARGETS with TARGETS_ARGS and
+# EXPECTED_RESULTS, and CMAKELISTS_DIR with CMAKE_DEFS. A list that is present but the wrong length
+# makes list(GET) fail much later with
+#
+#     list index: 2 out of range (-2, 1)
+#
+# reported against a generated file, which says nothing about which suite or which setting is at
+# fault. Checking as the database is read reports it against the definition file instead, and does
+# so in the acquire phase, before anything has been cloned or generated.
+function(_check_index_aligned _suite _file _prefix _anchor_name _anchor _other_name _other _placeholder)
+    list(LENGTH _anchor _anchor_length)
+    list(LENGTH _other _other_length)
+
+    # Omitting a list entirely is fine: list(GET) on an empty list yields NOTFOUND, which is what
+    # the placeholder means anyway. Only a partially filled list is wrong.
+    if (_other_length EQUAL 0 OR _other_length EQUAL _anchor_length)
+        return()
+    endif ()
+
+    message(FATAL_ERROR
+        "Test suite '${_suite}' has mismatched lists.\n"
+        "  ${_prefix}${_other_name} has ${_other_length} entries\n"
+        "  ${_prefix}${_anchor_name} has ${_anchor_length} entries\n"
+        "  defined in: ${_file}\n"
+        "These two lists are index-aligned, so ${_prefix}${_other_name} needs one entry for every "
+        "${_prefix}${_anchor_name} entry. Use ${_placeholder} where an entry has nothing to say, or "
+        "leave ${_prefix}${_other_name} out altogether.")
+endfunction()
+
 macro(add_functional_test TEST_DESCRIPTION_FILE)
     unset_test_variables()
     include(${TEST_DESCRIPTION_FILE})
@@ -120,6 +149,13 @@ macro(add_functional_test TEST_DESCRIPTION_FILE)
         set(TEST_${TEST_COUNT}_COMMIT_HASH ${TEST_COMMIT_HASH})
 
         foreach(_prefix TEST_ PYTEST_)
+            _check_index_aligned("${TEST_NAME}" "${TEST_DESCRIPTION_FILE}" "${_prefix}"
+                TARGETS "${${_prefix}TARGETS}" TARGETS_ARGS "${${_prefix}TARGETS_ARGS}" NOTFOUND)
+            _check_index_aligned("${TEST_NAME}" "${TEST_DESCRIPTION_FILE}" "${_prefix}"
+                TARGETS "${${_prefix}TARGETS}" EXPECTED_RESULTS "${${_prefix}EXPECTED_RESULTS}" NOTFOUND)
+            _check_index_aligned("${TEST_NAME}" "${TEST_DESCRIPTION_FILE}" "${_prefix}"
+                CMAKELISTS_DIR "${${_prefix}CMAKELISTS_DIR}" CMAKE_DEFS "${${_prefix}CMAKE_DEFS}" NONE)
+
             set(${_prefix}${TEST_COUNT}_TARGETS ${${_prefix}TARGETS})
             set(${_prefix}${TEST_COUNT}_TARGETS_ARGS ${${_prefix}TARGETS_ARGS})
             set(${_prefix}${TEST_COUNT}_CMAKELISTS_DIR ${${_prefix}CMAKELISTS_DIR})

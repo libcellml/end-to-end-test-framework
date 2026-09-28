@@ -201,8 +201,8 @@ What it catches
 Errors --- these would break a run:
 
 * a suite that sets neither ``TEST_GIT_REPO`` nor ``TEST_EXTERNAL_REFERENCE``, or sets both;
-* an index-aligned list that is present but the wrong length, which the framework reports only as
-  ``list index: N out of range`` from a generated file;
+* an index-aligned list that is present but the wrong length (the framework rejects these too, but
+  the validator reports every one of them at once rather than stopping at the first);
 * ``TEST_TARGETS`` with no ``TEST_CMAKELISTS_DIR``, so the targets are never built;
 * a ``CMAKE_DEFS`` entry that is not ``NAME=value`` or has an empty name;
 * a ``TARGETS_ENV`` entry that is not ``NAME=value``;

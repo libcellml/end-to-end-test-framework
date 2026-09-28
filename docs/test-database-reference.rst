@@ -99,14 +99,19 @@ Placeholder     Use
 ``NOTFOUND`` is not an arbitrary choice --- it is what CMake's own ``list(GET ...)`` returns when the
 list is empty, so omitting ``TARGETS_ARGS`` entirely behaves identically to filling it with
 ``NOTFOUND``. That only holds for a list that is *completely* empty. A list that is present but
-**shorter** than ``TARGETS`` is a hard error:
+**shorter** than ``TARGETS`` is rejected as the database is read:
 
 .. code-block:: text
 
-    CMake Error at .../configure/CMakeLists.txt:NN (list):
-      list index: 2 out of range (-2, 1)
+    Test suite 'libcellml_howto' has mismatched lists.
 
-If you see that during the configure phase, count your list entries.
+      TEST_TARGETS_ARGS has 2 entries
+      TEST_TARGETS has 3 entries
+      defined in: /path/to/database/libcellml_howto.cmake
+
+    These two lists are index-aligned, so TEST_TARGETS_ARGS needs one entry for
+    every TEST_TARGETS entry. Use NOTFOUND where an entry has nothing to say, or
+    leave TEST_TARGETS_ARGS out altogether.
 
 The pipe separator
 ==================

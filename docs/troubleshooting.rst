@@ -11,12 +11,13 @@ the common symptoms back to their causes.
 Configure and build failures
 ============================
 
-``list index: N out of range (-M, M-1)``
-----------------------------------------
+``has mismatched lists``
+------------------------
 
-Raised during the configure phase. One of a suite's index-aligned lists is shorter than the list it
-is aligned with --- most often ``TARGETS_ARGS`` or ``EXPECTED_RESULTS`` is shorter than ``TARGETS``,
-or ``CMAKE_DEFS`` is shorter than ``CMAKELISTS_DIR``.
+One of a suite's index-aligned lists is a different length from the list it is aligned with ---
+most often ``TARGETS_ARGS`` or ``EXPECTED_RESULTS`` against ``TARGETS``, or ``CMAKE_DEFS`` against
+``CMAKELISTS_DIR``. The message names the suite, both settings, their counts and the definition
+file.
 
 Fill the gaps with placeholders rather than leaving them out::
 
@@ -24,6 +25,9 @@ Fill the gaps with placeholders rather than leaving them out::
     set(TEST_TARGETS_ARGS     "NOTFOUND"  "-n|5"  "NOTFOUND")
 
 Note that omitting a list *entirely* is fine --- it is a partially filled list that fails.
+
+This is raised as the database is read, which happens in the acquire phase before anything has been
+cloned, so it costs nothing to hit.
 
 ``Could not find a package configuration file provided by "libCellML"``
 ------------------------------------------------------------------------
