@@ -1,0 +1,9 @@
+# A local checkout with no root CMakeLists.txt and no commit hash, named with a trailing slash.
+set(TEST_GIT_REPO "@REPOS_DIR@/subdir_only/")
+
+set(TEST_TARGETS
+  annotationToolDev
+)
+set(TEST_CMAKELISTS_DIR
+  resources/code/annotation_tool_dev
+)

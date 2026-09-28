@@ -281,6 +281,10 @@ Suite              Covers
 ``validator``      ``validate/validate_test_db.cmake`` --- the database schema checker. Each case
                    runs it against a fixture database and asserts the exit status *and* a
                    distinctive part of the message.
+``toplevel``       ``CMakeLists.txt`` --- how ``TEST_DB`` is resolved: a directory, a single
+                   suite definition, or a repository.
+``acquire``        ``acquire/CMakeLists.txt`` --- which repositories get cloned and which are
+                   used where they are.
 ``configure``      ``configure/CMakeLists.txt`` --- generating the test project from a database:
                    test naming, repository roots for compiled and Python targets, and interpreter
                    resolution. The generated file is read back as text; nothing is built.

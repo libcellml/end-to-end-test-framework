@@ -11,6 +11,12 @@ project(Acquire VERSION 1.1.0)
 include(ReadTestDB)
 include(AcquireTest)
 
+# Referenced unconditionally, so that a database of purely local repositories does not draw a
+# "Manually-specified variables were not used by the project" warning for it.
+if (NOT DEFINED DEFAULT_TEST_COMMIT_HASH OR DEFAULT_TEST_COMMIT_HASH STREQUAL "")
+    set(DEFAULT_TEST_COMMIT_HASH "main")
+endif ()
+
 read_test_db("${DB_DIR}" "${TESTS_BASE_DIR}")
 
 set(TEST_INDEX 0)

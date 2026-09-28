@@ -22,6 +22,8 @@
       EXPECT_SUITES            Pipe-separated suite names the manifest must list, in order.
       BUILD_SUITES             If true, also build every generated project and run ctest over it.
                                Needs a C++ compiler and the stub libCellML.
+      STALE_TESTS_FILE         If true, leave a file where the tests directory belongs first, as
+                               an older version of the framework did.
       EXTRA_ARGS               Further -D arguments, separated by '|'.
 ]]
 
@@ -37,7 +39,14 @@ set(_build "${SCRATCH}/${CASE}/build")
 set(_tests_base "${SCRATCH}/${CASE}/tests")
 file(REMOVE_RECURSE "${SCRATCH}/${CASE}")
 file(MAKE_DIRECTORY "${_build}")
-file(MAKE_DIRECTORY "${_tests_base}")
+# Deliberately NOT creating _tests_base: the configure project has to cope with it missing, which
+# is the case for a database whose repositories are all local checkouts, since then the acquire
+# phase clones nothing and never creates it as a side effect.
+if (STALE_TESTS_FILE)
+    get_filename_component(_tests_base_parent "${_tests_base}" DIRECTORY)
+    file(MAKE_DIRECTORY "${_tests_base_parent}")
+    file(WRITE "${_tests_base}" "left behind by an older version of the framework\n")
+endif ()
 
 set(_command "${CMAKE_COMMAND}"
     "-DCMAKE_MODULE_PATH=${MODULE_PATH}"

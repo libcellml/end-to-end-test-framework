@@ -8,7 +8,7 @@
 
     Usage:
 
-        cmake -DTEST_DB=<directory> [options] -P validate_test_db.cmake
+        cmake -DTEST_DB=<directory-or-file> [options] -P validate_test_db.cmake
 
     Options:
 
@@ -24,8 +24,12 @@ cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
 if (NOT DEFINED TEST_DB)
     message(FATAL_ERROR "TEST_DB is not set. Usage: cmake -DTEST_DB=<directory> -P validate_test_db.cmake")
 endif ()
-if (NOT IS_DIRECTORY "${TEST_DB}")
-    message(FATAL_ERROR "TEST_DB is not a directory: ${TEST_DB}")
+if (NOT EXISTS "${TEST_DB}")
+    message(FATAL_ERROR "TEST_DB does not exist: ${TEST_DB}")
+endif ()
+if (NOT IS_DIRECTORY "${TEST_DB}" AND NOT "${TEST_DB}" MATCHES "\\.cmake$")
+    message(FATAL_ERROR
+        "TEST_DB is a file that is not a .cmake suite definition: ${TEST_DB}")
 endif ()
 
 # The variables a test suite definition file may set. This list must track unset_test_variables()
@@ -62,7 +66,7 @@ function(_v_report _level _file _message)
     # Under GitHub Actions, also emit an annotation so the finding is attached to the file in
     # the pull request diff rather than buried in the log.
     if (DEFINED ENV{GITHUB_ACTIONS})
-        file(RELATIVE_PATH _relative "${TEST_DB}" "${_file}")
+        file(RELATIVE_PATH _relative "${_v_annotation_root}" "${_file}")
         message("::${_level} file=${_relative},title=Test database validation::${_message}")
     endif ()
 endfunction()
@@ -125,7 +129,13 @@ macro(_v_check_definition _v_file _v_is_reference)
             _v_error("${_v_file}" "sets no TEST_GIT_REPO and no TEST_EXTERNAL_REFERENCE")
         endif ()
 
-        if (NOT DEFINED TEST_COMMIT_HASH OR "${TEST_COMMIT_HASH}" STREQUAL "")
+        # An absolute TEST_GIT_REPO is a checkout on disk, which is never cloned, so there is
+        # nothing for a commit hash to pin.
+        if (IS_ABSOLUTE "${TEST_GIT_REPO}")
+            if (DEFINED TEST_COMMIT_HASH AND NOT "${TEST_COMMIT_HASH}" STREQUAL "")
+                _v_warn("${_v_file}" "sets TEST_COMMIT_HASH, which is ignored because TEST_GIT_REPO is a local checkout")
+            endif ()
+        elseif (NOT DEFINED TEST_COMMIT_HASH OR "${TEST_COMMIT_HASH}" STREQUAL "")
             _v_warn("${_v_file}" "sets no TEST_COMMIT_HASH; the framework will use 'main', which is not reproducible")
         else ()
             _v_is_pinned("${TEST_COMMIT_HASH}" _v_pinned)
@@ -226,8 +236,16 @@ endmacro()
 # Variables that look like suite variables but belong to this script or to the framework.
 set(_v_ignored_vars TEST_DB TEST_DB_COMMIT_HASH TEST_VERBOSE)
 
-file(GLOB _v_files LIST_DIRECTORIES FALSE "${TEST_DB}/*.cmake")
-list(SORT _v_files)
+# A database is a directory of definitions or a single one of them, matching what the framework
+# itself accepts.
+if (IS_DIRECTORY "${TEST_DB}")
+    file(GLOB _v_files LIST_DIRECTORIES FALSE "${TEST_DB}/*.cmake")
+    list(SORT _v_files)
+    set(_v_annotation_root "${TEST_DB}")
+else ()
+    set(_v_files "${TEST_DB}")
+    get_filename_component(_v_annotation_root "${TEST_DB}" DIRECTORY)
+endif ()
 list(LENGTH _v_files _v_file_count)
 
 message("")

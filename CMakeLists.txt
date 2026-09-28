@@ -111,6 +111,17 @@ set(BUILD_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/build-build${SINGLE_BUILD_TYPE}
 if (NOT EXISTS "${BUILD_BUILD_DIR}")
     file(MAKE_DIRECTORY "${BUILD_BUILD_DIR}")
 endif()
+# Where acquired repositories and the generated projects go. The acquire phase used to create it
+# as a side effect of cloning, which left it missing for a database of purely local repositories.
+set(TESTS_BASE_DIR "${CMAKE_CURRENT_BINARY_DIR}/tests")
+# An earlier version of the framework wrote a FILE at this path, because configure_file() given a
+# destination directory that does not exist creates a file there. Clear it so an existing build
+# tree recovers on the next configure instead of failing with "Not a directory".
+if (EXISTS "${TESTS_BASE_DIR}" AND NOT IS_DIRECTORY "${TESTS_BASE_DIR}")
+    message(STATUS "Removing a stale file at ${TESTS_BASE_DIR}")
+    file(REMOVE "${TESTS_BASE_DIR}")
+endif ()
+file(MAKE_DIRECTORY "${TESTS_BASE_DIR}")
 if (NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/CTestTestfile.cmake")
     file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/CTestTestfile.cmake" "# Generated test configuration file.\r\nsubdirs(\"${BUILD_BUILD_DIR}\")\r\n")
 endif()
@@ -183,7 +194,7 @@ add_custom_target(acquire_tests
     COMMAND ${CMAKE_COMMAND}
         -DCMAKE_MODULE_PATH="${CMAKE_MODULE_PATH}"
         -DDB_DIR="${_LOCAL_TEST_DB}"
-        -DTESTS_BASE_DIR="${CMAKE_CURRENT_BINARY_DIR}/tests"
+        -DTESTS_BASE_DIR="${TESTS_BASE_DIR}"
         -DDEFAULT_TEST_COMMIT_HASH="${_DEFAULT_TEST_DB_HASH}"
         ${CMAKE_CURRENT_SOURCE_DIR}/acquire
     COMMAND ${CMAKE_COMMAND} --build . ${MULTICONFIG_BUILD_CONFIG}
@@ -196,7 +207,7 @@ add_custom_target(configure_tests
     COMMAND ${CMAKE_COMMAND}
         -DCMAKE_MODULE_PATH="${CMAKE_MODULE_PATH}"
         -DDB_DIR="${_LOCAL_TEST_DB}"
-        -DTESTS_BASE_DIR="${CMAKE_CURRENT_BINARY_DIR}/tests"
+        -DTESTS_BASE_DIR="${TESTS_BASE_DIR}"
         -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}"
         -DlibCellML_DIR="${libCellML_DIR}"
         -DCOMPARE_EXE="${CMAKE_CURRENT_BINARY_DIR}/install/bin/numdiff"
@@ -217,7 +228,7 @@ endif()
 
 add_custom_target(build_tests ALL
     COMMAND ${CMAKE_COMMAND}
-        -DTESTS_BASE_DIR=${CMAKE_CURRENT_BINARY_DIR}/tests
+        -DTESTS_BASE_DIR=${TESTS_BASE_DIR}
         -DBUILD_DIR=${BUILD_BUILD_DIR}
         ${_BUILD_SUITES_CONFIG}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/configure/build_suites.cmake

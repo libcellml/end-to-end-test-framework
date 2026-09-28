@@ -46,7 +46,8 @@ function(add_validator_test _fixture _expectation)
         set(_name "${_t_NAME}")
     endif ()
 
-    if (NOT IS_DIRECTORY "${FIXTURES}/${_fixture}")
+    # A fixture is a directory of definitions, or a single definition file within one.
+    if (NOT EXISTS "${FIXTURES}/${_fixture}")
         message(FATAL_ERROR "No such fixture: ${_fixture}")
     endif ()
 
@@ -96,6 +97,14 @@ add_validator_test(valid-defs-aligned             PASS NOT_MATCH "${_NO_FINDINGS
 add_validator_test(valid-defs-two-definitions     PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-defs-extra-equals        PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-return-codes             PASS NOT_MATCH "${_NO_FINDINGS}")
+# A local checkout is never cloned, so there is nothing for a commit hash to pin and its absence
+# is not worth a warning.
+add_validator_test(valid-local-checkout           PASS NOT_MATCH "${_NO_FINDINGS}")
+# The validator takes a single definition file too, matching what the framework accepts.
+add_validator_test("valid-multiple-suites/one.cmake" PASS
+    NAME valid-single-file
+    MATCH "Found 1 test suite definition"
+    NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-python-alongside-cxx     PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-python-only              PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-multiple-suites          PASS NOT_MATCH "${_NO_FINDINGS}")
@@ -144,6 +153,8 @@ add_validator_test(invalid-repo-and-reference FAIL
 
 add_validator_test(warn-typo-variable PASS
     MATCH "sets TEST_TARGET_ARGS, which the framework does not read")
+add_validator_test(warn-local-checkout-with-hash PASS
+    MATCH "ignored because TEST_GIT_REPO is a local checkout")
 add_validator_test(warn-unpinned-hash PASS
     MATCH "sets no TEST_COMMIT_HASH")
 add_validator_test(warn-branch-hash PASS

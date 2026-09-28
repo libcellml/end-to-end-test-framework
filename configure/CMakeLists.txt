@@ -10,12 +10,35 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "11" CACHE STRING "Minimum OS X deployment versi
 
 project(testsetup VERSION 1.0 LANGUAGES NONE)
 
+# The top level always passes these, but each is only read on some paths: libCellML for suites
+# with compiled targets, the interpreter for suites with Python tests. Reading them here marks
+# them used, so a database that takes neither path does not draw a "Manually-specified variables
+# were not used by the project" warning.
+foreach (_optional_input libCellML_DIR CMAKE_PREFIX_PATH E2E_PYTHON_EXECUTABLE)
+    if (NOT DEFINED ${_optional_input})
+        set(${_optional_input} "")
+    endif ()
+    set(_marked_used "${${_optional_input}}")
+endforeach ()
+unset(_marked_used)
+
 include(ReadTestDB)
 include(WriteTest)
 include(PrePostTest)
 
+# Defensive: this project writes everything under TESTS_BASE_DIR, and it may be invoked on a
+# build tree an earlier version left a file at.
+# An earlier version of the framework wrote a FILE at this path, because configure_file() given a
+# destination directory that does not exist creates a file there. Clear it so an existing build
+# tree recovers on the next configure instead of failing with "Not a directory".
+if (EXISTS "${TESTS_BASE_DIR}" AND NOT IS_DIRECTORY "${TESTS_BASE_DIR}")
+    message(STATUS "Removing a stale file at ${TESTS_BASE_DIR}")
+    file(REMOVE "${TESTS_BASE_DIR}")
+endif ()
+file(MAKE_DIRECTORY "${TESTS_BASE_DIR}")
+
 set(NUMDIFF_EXE "${COMPARE_EXE}")
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/run_test.cmake ${TESTS_BASE_DIR} @ONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/run_test.cmake" "${TESTS_BASE_DIR}/run_test.cmake" @ONLY)
 
 read_test_db("${DB_DIR}" "${TESTS_BASE_DIR}")
 
@@ -189,15 +212,29 @@ ${_suite_preamble}")
                 else ()
                     set(_write_kind PYTHON)
                 endif ()
+                # Only pass the optional keywords that have a value. A keyword followed by an
+                # empty string is a developer warning under CMP0174, and whether it arrives as an
+                # empty value or as nothing at all depends on that policy.
+                set(_write_test_options)
+                if (NOT "${_current_args}" STREQUAL "")
+                    list(APPEND _write_test_options ARGS "${_current_args}")
+                endif ()
+                if (NOT "${_current_expected_results}" STREQUAL "")
+                    list(APPEND _write_test_options EXPECTED_RESULTS "${_current_expected_results}")
+                endif ()
+                if (NOT "${_current_env}" STREQUAL "")
+                    list(APPEND _write_test_options ENV "${_current_env}")
+                endif ()
+                if (NOT "${_current_return_code}" STREQUAL "")
+                    list(APPEND _write_test_options RETURN_CODE "${_current_return_code}")
+                endif ()
+
                 write_test(${_write_kind}
                     FILE "${SETUP_CMAKELISTS_FILE}"
                     NAME "${_current_name}"
                     TARGET "${_current_target}"
                     ROOT "${_current_root}"
-                    ARGS "${_current_args}"
-                    EXPECTED_RESULTS "${_current_expected_results}"
-                    ENV "${_current_env}"
-                    RETURN_CODE "${_current_return_code}")
+                    ${_write_test_options})
                 # Reset current name
                 set(_current_name ${_current_unmodified_name})
             endwhile()

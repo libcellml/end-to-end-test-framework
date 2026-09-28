@@ -38,7 +38,7 @@ find_package(Python3 COMPONENTS Interpreter)
 # add_configure_test(<case> <database> PASS|FAIL [MATCH <a|||b>] [NOT_MATCH <a|||b>]
 #                    [LOG_MATCH <regex>] [ARGS <a>|<b>])
 function(add_configure_test _case _database _expectation)
-    cmake_parse_arguments(_t "BUILD" "MATCH;NOT_MATCH;LOG_MATCH;LOG_NOT_MATCH;CTEST_MATCH;EXPECT_SUITES;ARGS" "" ${ARGN})
+    cmake_parse_arguments(_t "BUILD;STALE" "MATCH;NOT_MATCH;LOG_MATCH;LOG_NOT_MATCH;CTEST_MATCH;EXPECT_SUITES;ARGS" "" ${ARGN})
 
     # A fixture is a directory of definitions, or a single definition file.
     set(_database_dir "${DATABASES}/${_database}")
@@ -67,6 +67,9 @@ function(add_configure_test _case _database _expectation)
     )
     if (_t_BUILD)
         list(APPEND _command "-DBUILD_SUITES=TRUE" "-DCONFIGURE_DIR=${CONFIGURE_DIR}")
+    endif ()
+    if (_t_STALE)
+        list(APPEND _command "-DSTALE_TESTS_FILE=TRUE")
     endif ()
     foreach (_option MATCH NOT_MATCH LOG_MATCH LOG_NOT_MATCH CTEST_MATCH EXPECT_SUITES ARGS)
         if (_t_${_option})
@@ -174,6 +177,33 @@ if (CMAKE_CXX_COMPILER)
 else ()
     message(STATUS "No C++ compiler found; skipping the suites that build fixture projects.")
 endif ()
+
+# ---------------------------------------------------------------------------------------------
+# A database whose repositories are all local checkouts. The acquire phase clones nothing for
+# these, so it never creates the tests directory as a side effect, and the configure phase has to
+# stand on its own. Getting that wrong produced a FILE named 'tests' and then a cascade of
+# "Not a directory" errors.
+# ---------------------------------------------------------------------------------------------
+
+add_configure_test(local-repo-only local-repo-only PASS
+    EXPECT_SUITES "tutorial_resources"
+    MATCH "annotationToolDev"
+    LOG_NOT_MATCH "Not a directory|||failed to create directory")
+
+# A build tree from before the fix has a file where the tests directory belongs. Reconfiguring
+# has to recover on its own rather than failing every time.
+add_configure_test(stale-tests-file local-repo-only PASS
+    STALE
+    EXPECT_SUITES "tutorial_resources"
+    LOG_MATCH "Removing a stale file"
+    LOG_NOT_MATCH "Not a directory")
+
+# Nothing in a straightforward run should produce a CMake warning. Both of these appeared in
+# practice: keywords passed with an empty value, and inputs the top level always forwards but
+# which only some paths read.
+add_configure_test(no-cmake-warnings local-repo-only PASS
+    ARGS "-DlibCellML_DIR=|-DCMAKE_PREFIX_PATH="
+    LOG_NOT_MATCH "CMake Warning|||were not used by the project|||followed by an empty string|||CMP0174")
 
 # ---------------------------------------------------------------------------------------------
 # A database may be a single suite definition rather than a directory, which is how you work on

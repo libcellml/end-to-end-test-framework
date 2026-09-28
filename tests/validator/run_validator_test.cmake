@@ -9,7 +9,7 @@
 
     Required:
       VALIDATOR     Path to validate_test_db.cmake.
-      FIXTURE       Path to the fixture directory to validate.
+      FIXTURE       Path to the fixture database to validate: a directory, or one definition file.
       EXPECT_EXIT   0 if the validator should succeed, 1 if it should fail.
 
     Optional:
@@ -27,8 +27,9 @@ foreach (_required VALIDATOR FIXTURE EXPECT_EXIT)
     endif ()
 endforeach ()
 
-if (NOT IS_DIRECTORY "${FIXTURE}")
-    message(FATAL_ERROR "Fixture directory does not exist: ${FIXTURE}")
+# A fixture is a directory of definitions, or a single definition file.
+if (NOT EXISTS "${FIXTURE}")
+    message(FATAL_ERROR "Fixture does not exist: ${FIXTURE}")
 endif ()
 
 set(_command "${CMAKE_COMMAND}" "-DTEST_DB=${FIXTURE}")
