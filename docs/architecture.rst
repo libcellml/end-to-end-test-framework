@@ -92,10 +92,16 @@ so that they disappear from the GUI. The framework is not installable; build typ
 through ``BUILD_TYPE`` / ``E2E_TEST_BUILD_TYPE``.
 
 **Declares the test database as an external project.**
-If ``E2E_TEST_DB`` names an existing directory it is used in place and
-``E2E_TEST_DB_COMMIT_HASH`` is removed from the cache. Otherwise it is treated as a git
-repository and cloned into ``remote_database`` at ``E2E_TEST_DB_COMMIT_HASH``.
-Either way the result is a directory path held in ``_LOCAL_TEST_DB``.
+``E2E_TEST_DB`` may name a directory of suite definitions, a single definition file, or a git
+repository. A relative path is resolved against the directory ``cmake`` was invoked from, and if
+that resolves to something on disk it is used in place and ``E2E_TEST_DB_COMMIT_HASH`` is removed
+from the cache. An absolute path that does not exist is an error rather than a repository URL,
+since handing it to git would only produce a confusing clone failure. Anything else is cloned into
+``remote_database`` at ``E2E_TEST_DB_COMMIT_HASH``.
+
+The result is held in ``_LOCAL_TEST_DB`` and passed to the later phases as ``DB_DIR``. It is always
+an absolute path: those phases run in their own build directories, so a relative one would resolve
+somewhere else.
 
 **Declares the comparison application.**
 ``numdiff`` is cloned from ``E2E_COMPARE_APP_REPO`` and installed into ``<build>/install``.

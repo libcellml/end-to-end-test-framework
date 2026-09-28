@@ -29,6 +29,16 @@ Note that omitting a list *entirely* is fine --- it is a partially filled list t
 This is raised as the database is read, which happens in the acquire phase before anything has been
 cloned, so it costs nothing to hit.
 
+``TEST_DB is an absolute path that does not exist``
+----------------------------------------------------
+
+An absolute ``TEST_DB`` is taken to mean a database on disk, so a path that is not there is
+reported rather than handed to git. Check the path, or use a relative one, which is resolved
+against the directory ``cmake`` is run from.
+
+A related message, ``is not a .cmake file``, means ``TEST_DB`` named a file that is not a suite
+definition.
+
 ``Could not find a package configuration file provided by "libCellML"``
 ------------------------------------------------------------------------
 

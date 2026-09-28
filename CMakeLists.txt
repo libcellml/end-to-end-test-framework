@@ -119,15 +119,46 @@ if (E2E_TEST_VERBOSE)
     set(CTEST_VERBOSE_FLAG -V)
 endif()
 
-if(IS_DIRECTORY "${E2E_TEST_DB}")
+# TEST_DB is a directory of suite definitions, a single definition file, or a git repository.
+#
+# A relative path is resolved against the directory cmake was invoked from, so that
+# -DTEST_DB=../my-database behaves the way it reads. If it resolves to nothing it is left alone
+# and treated as a repository, which is what a bare 'org/repo' style URL needs.
+set(_TEST_DB_PATH "${E2E_TEST_DB}")
+if (NOT IS_ABSOLUTE "${_TEST_DB_PATH}")
+    get_filename_component(_TEST_DB_CANDIDATE "${_TEST_DB_PATH}" ABSOLUTE BASE_DIR "${CMAKE_BINARY_DIR}")
+    if (EXISTS "${_TEST_DB_CANDIDATE}")
+        set(_TEST_DB_PATH "${_TEST_DB_CANDIDATE}")
+    endif()
+endif()
+
+if(EXISTS "${_TEST_DB_PATH}")
+    if(IS_DIRECTORY "${_TEST_DB_PATH}")
+        set(_TEST_DB_ANCHOR "${_TEST_DB_PATH}")
+        message(STATUS "Test database (directory): ${_TEST_DB_PATH}")
+    else()
+        # A single definition file. Only that suite is read, which is what you want while writing
+        # one. The external project below is a dependency node only, so it anchors on the
+        # containing directory.
+        get_filename_component(_TEST_DB_ANCHOR "${_TEST_DB_PATH}" DIRECTORY)
+        message(STATUS "Test database (single suite definition): ${_TEST_DB_PATH}")
+    endif()
+
     ExternalProject_Add(process_tests
-        SOURCE_DIR "${E2E_TEST_DB}"
+        SOURCE_DIR "${_TEST_DB_ANCHOR}"
         CONFIGURE_COMMAND ""
         BUILD_COMMAND ""
         INSTALL_COMMAND ""
     )
-    set(_LOCAL_TEST_DB "${E2E_TEST_DB}")
+    set(_LOCAL_TEST_DB "${_TEST_DB_PATH}")
     unset(E2E_TEST_DB_COMMIT_HASH CACHE)
+elseif(IS_ABSOLUTE "${_TEST_DB_PATH}")
+    # An absolute path is unambiguously meant to be local, so handing it to git would only produce
+    # a confusing clone failure.
+    message(FATAL_ERROR
+        "TEST_DB is an absolute path that does not exist:\n"
+        "  ${_TEST_DB_PATH}\n"
+        "Give a directory of *.cmake suite definitions, a single such file, or a git repository.")
 else()
     ExternalProject_Add(process_tests
         PREFIX remote_database_ep_files

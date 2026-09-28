@@ -10,6 +10,7 @@
     Suites:
 
       validator      validate/validate_test_db.cmake -- the test database schema checker.
+      toplevel       CMakeLists.txt -- how TEST_DB is resolved.
       configure      configure/CMakeLists.txt -- generating the test project from a database.
       run_test       configure/run_test.cmake -- the harness every test is executed through.
       pre_post_test  Modules/PrePostTest.cmake -- CMAKE_DEFS parsing.
@@ -29,6 +30,7 @@ set(FRAMEWORK_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/..")
 get_filename_component(FRAMEWORK_SOURCE_DIR "${FRAMEWORK_SOURCE_DIR}" ABSOLUTE)
 
 add_subdirectory(validator)
+add_subdirectory(toplevel)
 add_subdirectory(configure)
 add_subdirectory(run_test)
 add_subdirectory(pre_post_test)

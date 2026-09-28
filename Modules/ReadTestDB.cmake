@@ -1,9 +1,11 @@
 
-macro(read_test_db _DIR _TEST_BASE_DIR)
-    if(IS_DIRECTORY "${_DIR}")
-        read_test_db_dir("${_DIR}" "${_TEST_BASE_DIR}")
+# A test database is either a directory of suite definitions or a single definition file. The
+# single file is for working on one suite: point at it and nothing else in the directory is read.
+macro(read_test_db _DB _TEST_BASE_DIR)
+    if(IS_DIRECTORY "${_DB}")
+        read_test_db_dir("${_DB}" "${_TEST_BASE_DIR}")
     else()
-        read_test_db_file("${_DIR}" "${_TEST_BASE_DIR}")
+        read_test_db_file("${_DB}" "${_TEST_BASE_DIR}")
     endif()
 endmacro()
 
@@ -100,12 +102,21 @@ macro(read_test_db_dir _DIR _TEST_BASE_DIR)
 endmacro()
 
 macro(read_test_db_file _FILE _TEST_BASE_DIR)
-    if (NOT TEST_COUNT)
-        set(TEST_COUNT 1)
-    endif()
-    add_functional_test(${_FILE} ${_TEST_BASE_DIR})
+    if (NOT EXISTS "${_FILE}")
+        message(FATAL_ERROR
+            "The test database '${_FILE}' is neither a directory nor an existing file.")
+    endif ()
+    if (NOT "${_FILE}" MATCHES "\\.cmake$")
+        message(FATAL_ERROR
+            "The test database file '${_FILE}' is not a .cmake file.\n"
+            "A test database is a directory of *.cmake suite definitions, or one such file.")
+    endif ()
 
-    _process_reference_tests(${_TEST_BASE_DIR})
+    # Exactly one suite, so the write index add_functional_test() uses is fixed.
+    set(TEST_COUNT 1)
+    add_functional_test("${_FILE}")
+
+    _process_reference_tests("${_TEST_BASE_DIR}")
 endmacro()
 
 # A test suite's settings come in two groups of index-aligned lists: TARGETS with TARGETS_ARGS and

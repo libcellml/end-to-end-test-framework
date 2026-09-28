@@ -4,7 +4,7 @@
 Test database reference
 =======================
 
-A **test database** is a directory of CMake files.
+A **test database** is a directory of CMake files, or a single one of those files.
 Each file defines one *test suite*: a git repository containing code that uses libCellML, a set of
 targets to build and run from it, and optionally the output those targets are expected to produce.
 

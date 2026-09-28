@@ -46,7 +46,7 @@ The framework provides some options to change the default behaviour.
 ===================  ===================================================================================================
       Option               Description
 ===================  ===================================================================================================
-TEST_DB              Set the location of the test database that defines the tests.
+TEST_DB              Set the location of the test database that defines the tests. A directory, a single .cmake file, or a git repository.
 TEST_DB_COMMIT_HASH  Set the commit hash of the test database to clone.
 libCellML_DIR        Alternative to specifying CMAKE_PREFIX_PATH if libCellML is installed into a non-standard location.
 PYTHON_EXECUTABLE    The Python interpreter used for Python tests. Found automatically if not set.
@@ -55,7 +55,10 @@ PYTHON_EXECUTABLE    The Python interpreter used for Python tests. Found automat
 TEST_DB
 +++++++
 
-The TEST_DB option can be either a remote git repository or a location on the local disk.
+The TEST_DB option can be a remote git repository, a directory on the local disk, or a single test
+suite definition file on the local disk.
+Naming one file reads only that suite, which is the quickest way to work on a definition.
+A relative path is resolved against the directory cmake is run from.
 The default value is: https://github.com/libcellml/end-to-end-test-database.git
 
 TEST_DB_COMMIT_HASH

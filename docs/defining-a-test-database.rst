@@ -43,10 +43,23 @@ framework detects that it is a directory rather than a URL and uses it in place 
 This is the mode to use while writing test definitions, because you can edit a ``.cmake`` file and
 re-run without pushing anything.
 
-.. note::
+Working on one suite
+--------------------
 
-   ``TEST_DB`` must be a **directory**. A path to a single ``.cmake`` file is treated as a git
-   repository URL and the clone will fail. Put your one file in a directory of its own.
+``TEST_DB`` may name a single definition file rather than a directory. Only that suite is read, so
+a database of a dozen suites can be narrowed to the one being worked on::
+
+    cmake -DTEST_DB=/path/to/my-test-database/my_examples.cmake ../end-to-end-test-framework
+
+This is the quickest way to iterate on a definition: the other suites are not read, their
+repositories are not cloned, and their tests are not built.
+
+A relative path works too, resolved against the directory ``cmake`` is run from::
+
+    cmake -DTEST_DB=../my-test-database/my_examples.cmake ../end-to-end-test-framework
+
+The file has to end in ``.cmake``, and an absolute path that does not exist is reported as a
+mistake rather than passed to git as a repository URL.
 
 Re-running after an edit
 ------------------------

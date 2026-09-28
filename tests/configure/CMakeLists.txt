@@ -40,11 +40,12 @@ find_package(Python3 COMPONENTS Interpreter)
 function(add_configure_test _case _database _expectation)
     cmake_parse_arguments(_t "BUILD" "MATCH;NOT_MATCH;LOG_MATCH;LOG_NOT_MATCH;CTEST_MATCH;EXPECT_SUITES;ARGS" "" ${ARGN})
 
+    # A fixture is a directory of definitions, or a single definition file.
     set(_database_dir "${DATABASES}/${_database}")
     if (NOT EXISTS "${_database_dir}")
         set(_database_dir "${GENERATED_DATABASES}/${_database}")
     endif ()
-    if (NOT IS_DIRECTORY "${_database_dir}")
+    if (NOT EXISTS "${_database_dir}")
         message(FATAL_ERROR "No such fixture database: ${_database}")
     endif ()
 
@@ -173,6 +174,22 @@ if (CMAKE_CXX_COMPILER)
 else ()
     message(STATUS "No C++ compiler found; skipping the suites that build fixture projects.")
 endif ()
+
+# ---------------------------------------------------------------------------------------------
+# A database may be a single suite definition rather than a directory, which is how you work on
+# one suite without the rest of the database coming along.
+# ---------------------------------------------------------------------------------------------
+
+add_configure_test(whole-directory multi-suite PASS
+    EXPECT_SUITES "first|second")
+
+add_configure_test(single-file "multi-suite/second.cmake" PASS
+    EXPECT_SUITES "second"
+    NOT_MATCH "first_prog")
+
+# A file that is not a suite definition is refused rather than parsed as CMake.
+add_configure_test(single-file-not-cmake "not-cmake/notes.txt" FAIL
+    LOG_MATCH "is not a .cmake file")
 
 # ---------------------------------------------------------------------------------------------
 # Expected return codes reach the generated tests, for both kinds of target.
