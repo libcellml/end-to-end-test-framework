@@ -1,0 +1,233 @@
+.. _architecture:
+
+============
+Architecture
+============
+
+This document describes how the end-to-end test framework turns a *test database* into a suite of CTest tests.
+
+Overview
+========
+
+The framework is a **meta-build**: the CMake project you configure does not itself contain any tests.
+Instead it drives four nested CMake projects, each of which runs in its own build directory, and the last of these is the project that CTest actually runs.
+
+The reason for the indirection is that the set of tests is not known until the test database has been fetched and read, and the code under test is not known until the repositories named by the database have been cloned.
+CMake cannot add subdirectories that do not exist yet, so each phase is deferred into a separate ``cmake`` invocation that runs at *build* time rather than at configure time.
+
+The pipeline
+============
+
+::
+
+    cmake ../end-to-end-test-framework     <-- you run this
+      |
+      +-- (configure) declares options, external projects and custom targets
+      |
+    make                                   <-- you run this
+      |
+      +-- process_tests      fetch the test database
+      +-- compare_app        clone and build numdiff
+      +-- acquire_tests      clone every repository named by the database
+      +-- configure_tests    generate tests/CMakeLists.txt from the database
+      +-- build_tests        configure and build tests/, registering CTest tests
+      |
+    ctest                                  <-- you run this
+      |
+      +-- run each test through run_test.cmake
+
+The targets are chained with ``DEPENDS`` so that ``make`` alone runs all of them in order.
+``build_tests`` is declared ``ALL``, which is what makes a bare ``make`` sufficient.
+
+Build directories
+-----------------
+
+Each phase gets its own build tree underneath your build directory.
+For a single-configuration generator with the default ``Release`` build type:
+
+===========================  ================================================================
+Directory                    Contents
+===========================  ================================================================
+``build-acquire-release``    Build tree for the ``acquire`` sub-project.
+``build-configure-release``  Build tree for the ``configure`` sub-project.
+``build-build-release``      Build tree for the generated test project. **CTest runs here.**
+``tests``                    Source tree of the generated test project (see below).
+``remote_database``          The test database, when it was cloned from a remote repository.
+``install``                  Install prefix for ``numdiff``.
+===========================  ================================================================
+
+Multi-configuration generators (Visual Studio, Xcode) omit the ``-release`` suffix and pass
+``--config`` through to the nested builds instead.
+
+Phase 1 --- top-level configure
+===============================
+
+``CMakeLists.txt`` in the repository root does five things.
+
+**Resolves options.**
+Each user-facing option uses a *shadow cache variable* idiom.
+A variable such as ``TEST_DB`` is read, copied into an internal ``E2E_TEST_DB`` cache entry with ``FORCE``, and then removed from the cache::
+
+    set(E2E_TEST_DB ${_DEFAULT_TEST_DB} CACHE STRING ${_ANNOTATION})
+    if (DEFINED TEST_DB)
+        set(E2E_TEST_DB ${TEST_DB} CACHE STRING ${_ANNOTATION} FORCE)
+    endif()
+    unset(TEST_DB CACHE)
+
+The practical consequences are worth knowing:
+
+* You only have to pass ``-DTEST_DB=...`` **once**. The value sticks in ``E2E_TEST_DB`` across
+  subsequent reconfigures.
+* ``TEST_DB`` will not appear in ``ccmake`` or ``cmake-gui`` after the first configure. Look for
+  ``E2E_TEST_DB`` instead.
+* To change the database, either pass ``-DTEST_DB=...`` again or edit ``E2E_TEST_DB`` directly.
+
+The same pattern is used for ``TEST_DB_COMMIT_HASH``, ``COMPARE_APP_REPO``, ``COMPARE_APP_HASH``,
+``TEST_VERBOSE`` and ``BUILD_TYPE``.
+
+**Internalises build variables.**
+``CMAKE_INSTALL_PREFIX``, ``CMAKE_BUILD_TYPE`` and ``BUILD_SHARED_LIBS`` are forced to ``INTERNAL``
+so that they disappear from the GUI. The framework is not installable; build type is controlled
+through ``BUILD_TYPE`` / ``E2E_TEST_BUILD_TYPE``.
+
+**Declares the test database as an external project.**
+If ``E2E_TEST_DB`` names an existing directory it is used in place and
+``E2E_TEST_DB_COMMIT_HASH`` is removed from the cache. Otherwise it is treated as a git
+repository and cloned into ``remote_database`` at ``E2E_TEST_DB_COMMIT_HASH``.
+Either way the result is a directory path held in ``_LOCAL_TEST_DB``.
+
+**Declares the comparison application.**
+``numdiff`` is cloned from ``E2E_COMPARE_APP_REPO`` and installed into ``<build>/install``.
+
+**Writes a top-level CTest stub.**
+``enable_testing()`` is never called at the top level --- doing so would collide with the custom
+``test`` target. Instead a ``CTestTestfile.cmake`` is written by hand::
+
+    subdirs("<build>/build-build-release")
+
+This is what lets you run ``ctest`` from the top of the build tree even though the tests are
+registered two directories down.
+
+Phase 2 --- acquire
+===================
+
+``acquire/CMakeLists.txt`` is configured as a standalone project inside ``build-acquire-*``.
+It reads the database with ``read_test_db()`` and, for each test suite, declares an
+``ExternalProject`` that clones ``TEST_GIT_REPO`` at ``TEST_COMMIT_HASH`` into
+``<build>/tests/<suite-name>``.
+
+Download only --- ``CONFIGURE_COMMAND``, ``BUILD_COMMAND`` and ``INSTALL_COMMAND`` are all empty.
+
+A suite whose ``TEST_GIT_REPO`` is an absolute path **and** which has a ``CMakeLists.txt`` at its
+root is treated as already acquired and skipped.
+
+Phase 3 --- configure
+=====================
+
+``configure/CMakeLists.txt`` is the heart of the framework. It runs inside ``build-configure-*``
+and generates two files into ``<build>/tests``:
+
+``run_test.cmake``
+    A copy of ``configure/run_test.cmake`` with ``@NUMDIFF_EXE@`` substituted for the path to the
+    built ``numdiff``. This is the harness every test is run through.
+
+``CMakeLists.txt``
+    The generated test project. It is built up by repeated ``file(APPEND ...)`` calls: a preamble
+    that finds libCellML, then one ``add_subdirectory()`` per CMake directory named by the
+    database, then one ``add_test()`` per target.
+
+The generation loop iterates over every suite, and within each suite over the two prefixes
+``TEST_`` (compiled C++ targets) and ``PYTEST_`` (Python scripts). For each prefix it runs two
+inner loops:
+
+1. **Over ``<prefix>CMAKELISTS_DIR``** --- emits ``add_subdirectory()``, optionally bracketed by
+   ``set()``/``unset()`` lines derived from ``<prefix>CMAKE_DEFS``. Only the ``TEST_`` prefix emits
+   subdirectories; Python scripts are not built.
+2. **Over ``<prefix>TARGETS``** --- emits one ``add_test()`` per target, pairing each target with
+   the same index of ``<prefix>TARGETS_ARGS`` and ``<prefix>EXPECTED_RESULTS``.
+
+Because these are two separate loops with two separate indices, ``CMAKELISTS_DIR`` is index-aligned
+with ``CMAKE_DEFS``, while ``TARGETS`` is index-aligned with ``TARGETS_ARGS`` and
+``EXPECTED_RESULTS``. See `Test database reference <test-database-reference.rst>`_ for the full rules.
+
+Test naming
+-----------
+
+The suite name is the test definition file's basename without extension --- ``libcellml_howto.cmake``
+becomes ``libcellml_howto``. If a suite defines more than one target, the target name is appended
+with a slash, giving CTest names such as ``libcellml_howto/parse_and_print``.
+Python tests are the same name with a ``py`` prefix on the whole thing:
+``pylibcellml_howto/parse_and_print``.
+
+Argument resolution
+-------------------
+
+Each element of a target's argument list is tested with ``EXISTS "${TEST_ROOT}/<arg>"``.
+If the path exists it is replaced by its absolute form; otherwise the argument is passed through
+unchanged. This is how a database can name a resource file by its path relative to the cloned
+repository and have it resolve correctly at run time, while flags such as ``-n`` and ``1000`` pass
+straight through.
+
+Phase 4 --- build
+=================
+
+``build_tests`` configures ``<build>/tests`` into ``build-build-*`` and builds it.
+This compiles every example program and registers every ``add_test()`` call.
+After this phase, ``ctest`` has something to run.
+
+The test harness
+================
+
+No test invokes its program directly. Every ``add_test()`` runs::
+
+    cmake -DTEST_NAME=... -DTEST_CMD=... -DTEST_ROOT=... [-DEXPECTED_OUTPUT=...]
+          -DTEST_OUTPUT=... -P <build>/tests/run_test.cmake
+
+``TEST_CMD`` is a single string with ``|`` standing in for the argument separator, because a
+semicolon-separated CMake list cannot survive being passed through ``-D``. ``run_test.cmake``
+splits it back into a list before executing.
+
+The harness then:
+
+1. Creates and enters ``<build-build>/test_runs/<TEST_NAME>`` as the working directory. Each test
+   gets its own directory, so any files a program writes land somewhere predictable and tests do
+   not interfere with each other.
+2. Runs the command, capturing stdout **and** stderr into one variable.
+3. Writes that capture to ``<TEST_NAME>.ctest_stdout`` in the working directory.
+4. Fails the test if the exit code was non-zero.
+5. Otherwise, if ``EXPECTED_OUTPUT`` was given, compares outputs.
+
+Comparison
+----------
+
+``EXPECTED_OUTPUT`` may be a directory or a single file. For a directory, every file beneath it is
+globbed and handled according to its extension:
+
+===================  =========================================================================
+Suffix               Handling
+===================  =========================================================================
+``.stdout``          Passed through ``configure_file(... @ONLY)`` and compared against the
+                     captured stdout. Because it is configured, placeholders such as
+                     ``@TEST_ROOT@`` and ``@TEST_WORKING_DIR@`` can be embedded in the expected
+                     output to absorb machine-specific paths.
+``.numdiff``         Not compared. Read as a settings file for the comparison of its sibling
+                     (see below).
+anything else        Compared against the file of the same relative name in the test's working
+                     directory.
+===================  =========================================================================
+
+Comparison is done by ``numdiff`` rather than a byte-for-byte diff, so floating-point output can
+differ within a tolerance. To set that tolerance for a particular file, place a file alongside the
+expected output named ``<expected-file>.numdiff``; it is ``include()``\ d and should set
+``NUMDIFF_ARGS``.
+
+Failure is signalled with ``message(SEND_ERROR ...)``, which makes the script's exit code non-zero
+once it finishes --- so every mismatched file in a directory is reported, not just the first.
+
+Trust boundary
+==============
+
+The framework clones repositories named by the test database, **builds them, and executes them**.
+A test database is therefore executable input, not data: anyone who can change the database, or
+the repositories it points at, can run arbitrary code on the machine running the tests.
+Pin commit hashes, and treat a database repository with the same care as the framework itself.

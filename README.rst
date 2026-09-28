@@ -86,6 +86,16 @@ or::
 
   make test
 
+Documentation
+=============
+
+Detailed documentation lives in the `docs <docs/index.rst>`_ directory:
+
+- `Defining a test database <docs/defining-a-test-database.rst>`_ -- creating a database, iterating locally, publishing it remotely.
+- `Test database reference <docs/test-database-reference.rst>`_ -- every variable a test suite definition can set.
+- `Architecture <docs/architecture.rst>`_ -- how the framework turns a database into CTest tests.
+- `Troubleshooting <docs/troubleshooting.rst>`_ -- common failure modes and where test output ends up.
+
 Further information
 ===================
 

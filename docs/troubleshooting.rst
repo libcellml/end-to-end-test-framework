@@ -1,0 +1,165 @@
+.. _troubleshooting:
+
+===============
+Troubleshooting
+===============
+
+The framework is a stack of nested CMake invocations, so an error in a test definition usually
+surfaces as a CMake error from a generated file rather than from anything you wrote. This page maps
+the common symptoms back to their causes.
+
+Configure and build failures
+============================
+
+``list index: N out of range (-M, M-1)``
+----------------------------------------
+
+Raised during the configure phase. One of a suite's index-aligned lists is shorter than the list it
+is aligned with --- most often ``TARGETS_ARGS`` or ``EXPECTED_RESULTS`` is shorter than ``TARGETS``,
+or ``CMAKE_DEFS`` is shorter than ``CMAKELISTS_DIR``.
+
+Fill the gaps with placeholders rather than leaving them out::
+
+    set(TEST_TARGETS          a           b       c)
+    set(TEST_TARGETS_ARGS     "NOTFOUND"  "-n|5"  "NOTFOUND")
+
+Note that omitting a list *entirely* is fine --- it is a partially filled list that fails.
+
+``Could not find a package configuration file provided by "libCellML"``
+------------------------------------------------------------------------
+
+The generated test project cannot locate libCellML. ``CMAKE_PREFIX_PATH`` and ``libCellML_DIR`` are
+forwarded from the top-level configure into the generated project, so set one of them there::
+
+    cmake -DCMAKE_PREFIX_PATH=/home/andre/usr/local ../end-to-end-test-framework
+
+If you set it after the first configure, delete ``build-configure-*`` and ``build-build-*`` so that
+the generated ``tests/CMakeLists.txt`` is rewritten with the new value.
+
+A target in the database does not exist
+---------------------------------------
+
+``add_test()`` is written for every name in ``TARGETS`` regardless of whether the corresponding
+``add_subdirectory()`` actually defines that target. The failure appears at generate time in
+``build-build-*`` as an unknown target in a generator expression.
+
+Check that the target name matches the ``add_executable()`` in the documentation repository at the
+pinned commit --- a renamed target in the upstream repository is a common cause.
+
+Duplicate target names
+----------------------
+
+All suites are added into one generated project, so two documentation repositories that both define
+a target called ``main`` will collide. Target names have to be unique across the whole database.
+
+A suite is silently missing
+---------------------------
+
+If a suite uses ``TEST_EXTERNAL_REFERENCE``, the download is not error-checked. A URL that 404s
+leaves an empty file, which is included without complaint, so the suite disappears without a
+message. Check that ``<build>/tests/ExternalReference/<suite-name>.cmake`` exists and has plausible
+content.
+
+A suite with ``PYTEST_TARGETS`` but no ``TEST_TARGETS`` will also behave oddly, because the
+repository root for Python targets is only computed while processing compiled targets. Give every
+suite at least one compiled target.
+
+Test failures
+=============
+
+Where to look
+-------------
+
+Each test runs in its own directory::
+
+    <build>/build-build-<type>/test_runs/<TEST_NAME>/
+
+That directory holds ``<TEST_NAME>.ctest_stdout`` --- the captured stdout and stderr --- along with
+any files the program wrote and, when stdout was compared, the configured expected output as
+``<TEST_NAME>.configured_expected_stdout``.
+
+Run a single test with its output::
+
+    ctest -R libcellml_howto/parse_and_print --output-on-failure
+
+``did not execute succesfully``
+-------------------------------
+
+The program exited non-zero. The full captured output is printed between ``## output start ##`` and
+``## output end ##`` markers, and the command line that was run is printed after the message.
+
+There is currently no way to express an expected failure, so a sample that is *meant* to exit
+non-zero cannot be tested as-is.
+
+Output comparison fails only on some machines
+---------------------------------------------
+
+Almost always an absolute path embedded in a ``.stdout`` file. Expected stdout files are passed
+through ``configure_file(... @ONLY)``, so replace machine-specific paths with placeholders before
+committing them:
+
+* ``@TEST_ROOT@`` --- the cloned repository
+* ``@TEST_WORKING_DIR@`` --- the per-test working directory
+* ``@TEST_NAME@`` --- the CTest test name
+
+Output comparison fails on the last digit
+-----------------------------------------
+
+Comparison uses ``numdiff``, which compares numbers rather than bytes, but its default tolerance is
+strict. Relax it for a particular file by adding a sibling settings file --- for
+``results.csv`` that is ``results.csv.numdiff`` --- containing::
+
+    set(NUMDIFF_ARGS -a 1e-8)
+
+A file comparison is skipped
+----------------------------
+
+Only files under an ``EXPECTED_RESULTS`` **directory** are compared. Naming a single file directly
+does not currently work: the comparison branch for that case refers to a variable that is only set
+inside the directory loop. Put the file in a directory of its own.
+
+Python tests fail with ``ModuleNotFoundError``
+----------------------------------------------
+
+Two separate causes:
+
+*libcellml itself is not importable.* Nothing in the framework puts the libCellML Python bindings on
+``sys.path``. Activate the environment they are installed into before running ``ctest``, or add the
+path via ``PYTEST_TARGETS_ENV``.
+
+*A helper module in the documentation repository is not importable.* Add its directory::
+
+    set(PYTEST_TARGETS_ENV "PYTHONPATH=@TEST_ROOT@/resources/code/utilities/")
+
+Python tests fail with ``python: command not found``
+-----------------------------------------------------
+
+The interpreter is hard coded as the bare command ``python``. On a system where only ``python3``
+exists, run ``ctest`` from inside a virtual environment, or make ``python`` available on the
+``PATH``.
+
+Stale state
+===========
+
+Most confusing behaviour after editing a test definition comes from a phase not re-running. The
+phases are driven by custom targets and ``ExternalProject``, neither of which tracks the database
+files as dependencies.
+
+============================================  ===================================================
+To force this to re-run                       Remove
+============================================  ===================================================
+Re-read the database, regenerate the tests    ``build-configure-*`` and ``build-build-*``
+Re-clone a test repository at a new commit    ``tests/<suite-name>`` and ``build-acquire-*``
+Re-clone a remote database at a new commit    ``remote_database`` and
+                                              ``remote_database_ep_files``
+Rebuild the comparison application            ``compare_app_ep_files`` and ``install``
+============================================  ===================================================
+
+When in doubt, configure into an empty build directory. Nothing in the framework is expensive to
+rebuild except ``numdiff`` and the clones.
+
+Version requirements
+====================
+
+The README asks for CMake 3.21, while the projects themselves declare minimums of 3.18 (top level
+and configure) and 3.10 (acquire). Use 3.21 or newer; the lower declared minimums are not tested.
