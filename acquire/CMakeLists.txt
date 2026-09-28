@@ -5,7 +5,7 @@
 #  - TESTS_BASE_DIR: Base directory where the examples to be tested are downloaded to.
 #  - DEFAULT_TEST_COMMIT_HASH: Default test commit hash if none given.
 
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
 project(Acquire VERSION 1.1.0)
 
 include(ReadTestDB)
