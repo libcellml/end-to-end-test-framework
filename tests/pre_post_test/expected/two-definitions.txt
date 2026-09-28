@@ -1,0 +1,5 @@
+set(A "1")
+set(B "2")
+# --- post ---
+unset(A)
+unset(B)

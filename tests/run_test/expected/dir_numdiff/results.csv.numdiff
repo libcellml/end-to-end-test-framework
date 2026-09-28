@@ -1,0 +1,1 @@
+set(NUMDIFF_ARGS --ignore-eol)

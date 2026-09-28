@@ -200,8 +200,9 @@ The harness then:
 Comparison
 ----------
 
-``EXPECTED_OUTPUT`` may be a directory or a single file. For a directory, every file beneath it is
-globbed and handled according to its extension:
+``EXPECTED_OUTPUT`` may be a directory or a single file. A directory is globbed recursively and
+each file beneath it handled according to its extension; a single file goes through the same
+handling on its own. Both cases run through one function, so the two paths cannot drift apart:
 
 ===================  =========================================================================
 Suffix               Handling
@@ -221,8 +222,51 @@ differ within a tolerance. To set that tolerance for a particular file, place a 
 expected output named ``<expected-file>.numdiff``; it is ``include()``\ d and should set
 ``NUMDIFF_ARGS``.
 
+An expected file that the program never wrote is a failure in its own right, reported with the path
+it was looked for at rather than as a comparison against nothing.
+
 Failure is signalled with ``message(SEND_ERROR ...)``, which makes the script's exit code non-zero
 once it finishes --- so every mismatched file in a directory is reported, not just the first.
+
+Self-tests
+==========
+
+The framework's own machinery has tests, separate from anything a test database does. They need no
+compiler, no libCellML and no network, and run in a second or two::
+
+    cmake -S tests -B build-tests
+    ctest --test-dir build-tests --output-on-failure
+
+=================  ==============================================================================
+Suite              Covers
+=================  ==============================================================================
+``validator``      ``validate/validate_test_db.cmake`` --- the database schema checker. Each case
+                   runs it against a fixture database and asserts the exit status *and* a
+                   distinctive part of the message.
+``run_test``       ``configure/run_test.cmake`` --- the comparison paths: expected output as a
+                   directory or as a single file, nested files, missing files, ``.numdiff``
+                   siblings, and ``@TEST_ROOT@`` substitution in expected stdout.
+``pre_post_test``  ``Modules/PrePostTest.cmake`` --- ``CMAKE_DEFS`` parsing, including several
+                   definitions in one entry and values containing ``=``.
+=================  ==============================================================================
+
+Each suite is labelled, so one can be run on its own::
+
+    ctest --test-dir build-tests -L run_test
+
+Two details make the suites cheap to run anywhere. The programs under test are CMake scripts
+executed with ``cmake -P``, so nothing is compiled. And ``run_test.cmake`` is a template expecting
+the comparison application's path to be substituted in, which the suite fills with
+``cmake -E compare_files`` --- a byte-for-byte comparison rather than a numerical one, which is all
+these tests need and means ``numdiff`` does not have to be built.
+
+Assertions check both the exit status and the message. Either alone is too weak: a status-only test
+passes when something fails for the wrong reason, and a message-only test passes when the failure is
+reported but the exit status is wrong anyway.
+
+When adding a case, put a fixture beside the others and register it in that suite's
+``CMakeLists.txt``. Keep match patterns free of regular expression metacharacters --- the messages
+contain ``|``, ``(`` and ``.``, so match a fragment of plain prose rather than a whole sentence.
 
 Trust boundary
 ==============

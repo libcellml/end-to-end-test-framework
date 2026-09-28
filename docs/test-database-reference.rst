@@ -127,12 +127,14 @@ For example, a target invoked as ``solve -n 1000 -dt 0.008 -m model.cellml`` is 
       "-n|1000|-dt|0.008|-m|resources/code/solver/integrate_sine.cellml"
     )
 
-.. warning::
+Use ``|`` in ``CMAKE_DEFS`` too, to set more than one variable for a single CMake directory::
 
-   ``CMAKE_DEFS`` currently supports only **one** definition per entry. Although it looks as though
-   ``|`` should separate several, the splitting is not applied, and ``"A=1|B=2"`` is parsed as a
-   single definition ``A`` with the value ``1|B``. A value that itself contains ``=`` is also
-   truncated at the first ``=``.
+    set(TEST_CMAKE_DEFS
+      "INPUT_MODEL=@TEST_ROOT@/model.cellml|TOLERANCE=1e-8"
+    )
+
+Only the first ``=`` in each definition separates the name from the value, so a value may contain
+more: ``"FLAGS=-DENABLE_X=1"`` sets ``FLAGS`` to ``-DENABLE_X=1``.
 
 Path resolution in arguments
 ============================
@@ -177,11 +179,10 @@ A **directory** is the usual case. Every file beneath it is globbed and compared
 * any other file is compared against the file of the same name in the test's working directory,
   meaning the program is expected to have written it.
 
-.. note::
-
-   Passing a **single file** rather than a directory does not currently work; the comparison branch
-   for that case refers to a variable that is only set inside the directory loop. Put the expected
-   file in a directory of its own until this is fixed.
+A **single file** works too. It is compared against the file of the same name in the test's
+working directory, so name it after the file the program writes --- an expected results entry of
+``expected/results.csv`` is compared against ``results.csv``. A single file ending ``.stdout`` is
+compared against the captured output, whatever it is called.
 
 Comparison tolerance
 --------------------

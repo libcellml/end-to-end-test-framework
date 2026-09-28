@@ -16,8 +16,8 @@ Contents
 
 `Architecture <architecture.rst>`_
     How the framework turns a test database into CTest tests: the four-phase meta-build, the
-    generated project, and the harness each test runs through. Read this to understand or modify
-    the framework.
+    generated project, and the harness each test runs through, plus the framework's own self-tests.
+    Read this to understand or modify the framework.
 
 `Test database reference <test-database-reference.rst>`_
     Every variable a test suite definition can set, the indexing rules between them, the ``NOTFOUND``
@@ -48,10 +48,10 @@ Validate a database without building anything::
 
     cmake -DTEST_DB=<directory> -P validate/validate_test_db.cmake
 
-Run the validator's own test suite::
+Run the framework's self-tests::
 
-    cmake -S validate/tests -B build-validator-tests
-    ctest --test-dir build-validator-tests --output-on-failure
+    cmake -S tests -B build-tests
+    ctest --test-dir build-tests --output-on-failure
 
 A minimal test suite definition::
 

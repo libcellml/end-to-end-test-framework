@@ -1,0 +1,7 @@
+set(A "1")
+set(FLAGS "-DX=1")
+set(C "3")
+# --- post ---
+unset(A)
+unset(FLAGS)
+unset(C)

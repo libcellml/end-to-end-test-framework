@@ -1,0 +1,3 @@
+set(MSG "hello there world")
+# --- post ---
+unset(MSG)

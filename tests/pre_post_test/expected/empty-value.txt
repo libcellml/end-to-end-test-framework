@@ -1,0 +1,3 @@
+set(EMPTY "")
+# --- post ---
+unset(EMPTY)

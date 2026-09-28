@@ -1,0 +1,3 @@
+set(FLAGS "-DENABLE_X=1")
+# --- post ---
+unset(FLAGS)

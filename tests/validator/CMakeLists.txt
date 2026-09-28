@@ -4,8 +4,8 @@
     This is a standalone project. It needs no compiler and no libCellML, and it does not touch the
     network unless you turn on the reference tests.
 
-        cmake -S validate/tests -B build-validator-tests
-        ctest --test-dir build-validator-tests --output-on-failure
+        cmake -S tests -B build-tests
+        ctest --test-dir build-tests --output-on-failure
 
     Each test runs the validator against one fixture database in fixtures/ and asserts both the
     exit status and a distinctive part of the message. Asserting the message matters: a test that
@@ -18,7 +18,7 @@ project(ValidatorTests VERSION 1.0 LANGUAGES NONE)
 
 enable_testing()
 
-set(VALIDATOR "${CMAKE_CURRENT_SOURCE_DIR}/../validate_test_db.cmake")
+set(VALIDATOR "${CMAKE_CURRENT_SOURCE_DIR}/../../validate/validate_test_db.cmake")
 get_filename_component(VALIDATOR "${VALIDATOR}" ABSOLUTE)
 if (NOT EXISTS "${VALIDATOR}")
     message(FATAL_ERROR "Cannot find the validator at ${VALIDATOR}")
@@ -79,7 +79,7 @@ function(add_validator_test _fixture _expectation)
     endif ()
 
     add_test(NAME ${_name} COMMAND ${_command})
-    set_tests_properties(${_name} PROPERTIES TIMEOUT 60)
+    set_tests_properties(${_name} PROPERTIES TIMEOUT 60 LABELS validator)
 endfunction()
 
 # ------------------------------------------------------------------------------------------------
@@ -93,6 +93,8 @@ add_validator_test(valid-args-omitted             PASS NOT_MATCH "${_NO_FINDINGS
 add_validator_test(valid-single-notfound-aligned  PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-env-two-variables        PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-defs-aligned             PASS NOT_MATCH "${_NO_FINDINGS}")
+add_validator_test(valid-defs-two-definitions     PASS NOT_MATCH "${_NO_FINDINGS}")
+add_validator_test(valid-defs-extra-equals        PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-python-alongside-cxx     PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-multiple-suites          PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-external-reference       PASS NOT_MATCH "${_NO_FINDINGS}")
@@ -116,10 +118,10 @@ add_validator_test(invalid-targets-without-cmakelists-dir FAIL
     MATCH "no TEST_CMAKELISTS_DIR")
 add_validator_test(invalid-python-only FAIL
     MATCH "PYTEST_TARGETS but no TEST_TARGETS")
-add_validator_test(invalid-defs-two-definitions FAIL
-    MATCH "only one definition per entry is supported")
-add_validator_test(invalid-defs-extra-equals FAIL
-    MATCH "truncated at the first one")
+add_validator_test(invalid-defs-no-equals FAIL
+    MATCH "is not of the form NAME=value")
+add_validator_test(invalid-defs-empty-name FAIL
+    MATCH "has an empty name")
 add_validator_test(invalid-malformed-env FAIL
     MATCH "is not of the form NAME=value")
 add_validator_test(invalid-no-git-repo FAIL

@@ -81,12 +81,9 @@ absolute path::
 
 The acquire phase recognises an absolute path and does not attempt a clone.
 
-.. warning::
-
-   The check for "already acquired" requires a ``CMakeLists.txt`` at the **root** of that directory,
-   even though the configure phase looks for one under ``TEST_CMAKELISTS_DIR``. A local repository
-   whose CMake files live only in subdirectories will fail the check and the framework will try to
-   clone the path as if it were a URL. A stub ``CMakeLists.txt`` at the root works around it.
+An absolute path is always treated as a checkout on disk and is never cloned, whatever the
+repository looks like inside; the CMake files may live wherever ``TEST_CMAKELISTS_DIR`` says. If the
+path does not exist, the acquire phase stops and says so rather than handing the path to git.
 
 Publishing a remote database
 ============================
@@ -208,8 +205,7 @@ Errors --- these would break a run:
   ``list index: N out of range`` from a generated file;
 * ``TEST_TARGETS`` with no ``TEST_CMAKELISTS_DIR``, so the targets are never built;
 * ``PYTEST_TARGETS`` with no ``TEST_TARGETS``, which resolves against the wrong repository root;
-* a ``CMAKE_DEFS`` entry with more than one definition or more than one ``=``, both of which are
-  silently mis-parsed;
+* a ``CMAKE_DEFS`` entry that is not ``NAME=value`` or has an empty name;
 * a ``TARGETS_ENV`` entry that is not ``NAME=value``;
 * a compiled target name used by more than one suite, which collides in the generated project;
 * an external reference that cannot be downloaded, is empty, or is itself a reference
@@ -269,36 +265,8 @@ this layout puts each finding on the right line of the pull request diff.
 Testing the validator
 ---------------------
 
-The validator has its own test suite, so a change to it can be made with some confidence. It is a
-standalone CMake project needing no compiler, no libCellML and no network::
-
-    cmake -S validate/tests -B build-validator-tests
-    ctest --test-dir build-validator-tests --output-on-failure
-
-Each test runs the validator against one fixture database under ``validate/tests/fixtures/`` and
-asserts both the exit status and a distinctive fragment of the message. Both halves matter: a test
-that checked only the status would pass if the validator rejected a database for the wrong reason,
-and one that checked only the message would pass if the validator reported a problem and then
-exited zero anyway.
-
-Add ``-DVALIDATOR_TEST_NETWORK=ON`` to include the tests that resolve an external reference over
-the network. They are off by default so the suite runs offline.
-
-To add a case, create a directory under ``fixtures/`` containing the suite definitions that
-reproduce it and register it in ``validate/tests/CMakeLists.txt``::
-
-    add_validator_test(invalid-my-new-case FAIL
-        MATCH "the distinctive part of the message")
-
-Fixture names are prefixed ``valid-``, ``invalid-`` or ``warn-`` after what they are expected to do.
-Keep ``MATCH`` patterns free of regular expression metacharacters --- the validator's messages
-contain ``|``, ``(`` and ``.``, so match on a fragment of plain prose rather than a whole sentence.
-
-Some of the fixtures exist because of a specific mistake. The three ``-single-`` cases cover a
-one-element list whose only element is ``NOTFOUND`` or ``NONE``: CMake's ``if()`` evaluates those as
-false, so an emptiness check written as ``if (MY_LIST)`` skips them, and a length mismatch goes
-unreported. Emptiness in the validator is always tested with ``list(LENGTH)`` or ``DEFINED`` for
-that reason.
+The validator has a test suite of its own, alongside the framework's other self-tests. See
+`Architecture <architecture.rst>`_ for how to run it and how to add a case.
 
 Keeping a database current
 ==========================

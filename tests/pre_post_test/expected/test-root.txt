@@ -1,0 +1,3 @@
+set(INPUT_MODEL "/repo/root/m.cellml")
+# --- post ---
+unset(INPUT_MODEL)

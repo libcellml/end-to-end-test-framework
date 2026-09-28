@@ -21,12 +21,18 @@ while(TEST_INDEX LESS TEST_COUNT)
     set(_current_test_git_repo ${TEST_${TEST_INDEX}_GIT_REPO})
     set(_current_test_commit_hash ${TEST_${TEST_INDEX}_COMMIT_HASH})
 
-    if (IS_ABSOLUTE "${_current_test_git_repo}" AND EXISTS "${_current_test_git_repo}/CMakeLists.txt")
-        # Local test already acquired so do nothing.
-        # Inanely using TEST_BASE_DIR.
-        if (TESTS_BASE_DIR)
-            # Doing nothing but using variable passed in.
-        endif()
+    # A local checkout needs no acquiring. The test for "local" must be IS_ABSOLUTE alone,
+    # matching the configure phase: requiring a CMakeLists.txt at the repository root as well
+    # made this phase disagree with configure, which looks for one under TEST_CMAKELISTS_DIR.
+    # A local repository keeping its CMake files only in subdirectories therefore failed the
+    # test here and was passed to git as if it were a URL.
+    if (IS_ABSOLUTE "${_current_test_git_repo}")
+        if (NOT IS_DIRECTORY "${_current_test_git_repo}")
+            message(FATAL_ERROR
+                "Test suite '${_current_test_name}' names a local repository that does not exist.\n"
+                "  TEST_GIT_REPO: ${_current_test_git_repo}\n"
+                "An absolute TEST_GIT_REPO is treated as a checkout on disk and is never cloned.")
+        endif ()
     else ()
         if (NOT _current_test_commit_hash)
             set(_current_test_commit_hash ${DEFAULT_TEST_COMMIT_HASH})

@@ -118,12 +118,16 @@ strict. Relax it for a particular file by adding a sibling settings file --- for
 
     set(NUMDIFF_ARGS -a 1e-8)
 
-A file comparison is skipped
-----------------------------
+``did not produce the expected file``
+-------------------------------------
 
-Only files under an ``EXPECTED_RESULTS`` **directory** are compared. Naming a single file directly
-does not currently work: the comparison branch for that case refers to a variable that is only set
-inside the directory loop. Put the file in a directory of its own.
+An expected output names a file the program never wrote. The message gives the path it was looked
+for at, which is always the test's working directory plus the expected file's path relative to the
+``EXPECTED_RESULTS`` directory --- or, for a single expected file, just its name.
+
+The usual cause is an expected file whose name does not match what the program writes. Naming a
+single expected file ``expected_output.csv`` when the program writes ``results.csv`` will not
+match; the expected file has to be called ``results.csv``.
 
 Python tests fail with ``ModuleNotFoundError``
 ----------------------------------------------
