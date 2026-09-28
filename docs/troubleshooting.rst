@@ -52,13 +52,20 @@ Duplicate target names
 All suites are added into one generated project, so two documentation repositories that both define
 a target called ``main`` will collide. Target names have to be unique across the whole database.
 
-A suite is silently missing
----------------------------
+``Failed to download the external reference for test suite '...'``
+-------------------------------------------------------------------
 
-If a suite uses ``TEST_EXTERNAL_REFERENCE``, the download is not error-checked. A URL that 404s
-leaves an empty file, which is included without complaint, so the suite disappears without a
-message. Check that ``<build>/tests/ExternalReference/<suite-name>.cmake`` exists and has plausible
-content.
+A suite using ``TEST_EXTERNAL_REFERENCE`` could not fetch it. The message carries the URL, the
+transfer error and the full log. For a ``raw.githubusercontent.com`` URL the usual cause is a commit
+SHA or path in the URL that no longer exists.
+
+Related errors from the same check: *downloaded as an empty file* (the transfer succeeded but
+produced nothing), *did not define a test suite* (the file parsed but set no ``TEST_GIT_REPO``,
+typically an HTML error page served with a 200), and *is itself an external reference* (chained
+references are not supported).
+
+The downloaded file is left at ``<build>/tests/ExternalReference/<suite-name>.cmake`` when it parsed,
+and removed when the transfer itself failed.
 
 A suite with ``PYTEST_TARGETS`` but no ``TEST_TARGETS`` will also behave oddly, because the
 repository root for Python targets is only computed while processing compiled targets. Give every

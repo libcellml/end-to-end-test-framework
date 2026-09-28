@@ -221,14 +221,16 @@ This exists so that one database can reuse a suite definition maintained in anot
 ``libcellml.org-documentation-test-database`` picks up the tutorials suite from the canonical
 ``end-to-end-test-database``.
 
-Three things to know about it:
+Two things to know about it:
 
 * **Pin the URL to a commit.** A ``raw.githubusercontent.com`` URL containing ``main`` will silently
   change under you. Use a commit SHA in the path, as in the example above.
-* **The download is not checked.** A failed or partial download produces a file that is included
-  without complaint, which can make a suite quietly disappear rather than fail.
-* **References do not nest.** If the referenced file itself sets ``TEST_EXTERNAL_REFERENCE``, that is
-  ignored.
+* **References do not nest.** A referenced file that itself sets ``TEST_EXTERNAL_REFERENCE`` is
+  rejected with an error; reference the suite definition directly.
+
+The download is verified. A transfer that fails, one that produces an empty file, and one that
+produces a file defining no ``TEST_GIT_REPO`` are all fatal errors naming the suite and the URL, so
+a broken reference stops the run rather than quietly removing a suite from it.
 
 Python tests
 ============

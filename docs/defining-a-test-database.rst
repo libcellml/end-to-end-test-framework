@@ -110,9 +110,11 @@ inconvenient for a reproducible result, because a test run you did last week may
 today. For anything that gates a release or a deployment, pin:
 
 * ``TEST_DB_COMMIT_HASH`` to a tag or commit SHA;
-* every suite's ``TEST_COMMIT_HASH`` to a commit SHA, since it too defaults to ``main``;
-* ``COMPARE_APP_HASH``, which defaults to ``main`` and therefore tracks whatever ``numdiff``
-  happens to be at the time.
+* every suite's ``TEST_COMMIT_HASH`` to a commit SHA, since it too defaults to ``main``.
+
+``COMPARE_APP_HASH`` is already pinned to a commit by default. The comparison application decides
+whether two numbers are equal, so an unpinned change to it can fail a run with no change to either
+the framework or the database. Override it only deliberately.
 
 Reusing a suite from another database
 -------------------------------------
@@ -126,9 +128,9 @@ Rather than copying a suite definition, a database can reference one maintained 
 The referenced file is downloaded and used in place of the local one. This is how
 ``libcellml.org-documentation-test-database`` tracks the tutorials suite without duplicating it.
 
-Put a commit SHA in the URL, not a branch name. A ``main`` URL changes under you, and because the
-download is unchecked, a reference that breaks tends to produce a suite that quietly vanishes rather
-than a failure you can see.
+Put a commit SHA in the URL, not a branch name --- a ``main`` URL changes under you. A reference
+that breaks is a fatal error naming the suite and the URL, so it will stop the run rather than
+silently drop the suite.
 
 A worked example: documenting-code tests
 ========================================
@@ -206,7 +208,7 @@ Option                   Default                         Description
 ``BUILD_TYPE``           ``Release``                     Build type for single-config generators.
 ``TEST_VERBOSE``         ``OFF``                         Adds ``-V`` to the ``make test`` target.
 ``COMPARE_APP_REPO``     cmlibs-dependencies/numdiff     Repository of the comparison application.
-``COMPARE_APP_HASH``     ``main``                        Commit/tag of the comparison application.
+``COMPARE_APP_HASH``     a pinned commit                 Commit/tag of the comparison application.
 =======================  ==============================  ===========================================
 
 To inspect or change a value after the first configure, look for the ``E2E_``-prefixed name in

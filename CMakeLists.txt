@@ -38,15 +38,23 @@ if (DEFINED TEST_DB_COMMIT_HASH)
 endif()
 unset(TEST_DB_COMMIT_HASH CACHE)
 
+# Default values for the comparison application.
+# The hash is pinned to a specific commit rather than tracking a branch: the comparison
+# application decides whether two numbers are equal, so an unpinned change to it can fail a
+# test run with no change to either the framework or the test database. numdiff publishes no
+# tags, so a commit hash is the only thing available to pin to.
+set(_DEFAULT_COMPARE_APP_REPO "https://github.com/cmlibs-dependencies/numdiff")
+set(_DEFAULT_COMPARE_APP_HASH "9ea8ec0157bac9480ccf308b6efff545221dc3c9")
+
 set(_ANNOTATION "The repository of the application for comparing files.")
-set(E2E_COMPARE_APP_REPO "https://github.com/cmlibs-dependencies/numdiff" CACHE STRING ${_ANNOTATION})
+set(E2E_COMPARE_APP_REPO ${_DEFAULT_COMPARE_APP_REPO} CACHE STRING ${_ANNOTATION})
 if (DEFINED COMPARE_APP_REPO)
     set(E2E_COMPARE_APP_REPO ${COMPARE_APP_REPO} CACHE STRING ${_ANNOTATION} FORCE)
 endif()
 unset(COMPARE_APP_REPO CACHE)
 
 set(_ANNOTATION "The commit hash/tag for the compare files application.")
-set(E2E_COMPARE_APP_HASH "main" CACHE STRING ${_ANNOTATION})
+set(E2E_COMPARE_APP_HASH ${_DEFAULT_COMPARE_APP_HASH} CACHE STRING ${_ANNOTATION})
 if (DEFINED COMPARE_APP_HASH)
     set(E2E_COMPARE_APP_HASH ${COMPARE_APP_HASH} CACHE STRING ${_ANNOTATION} FORCE)
 endif()

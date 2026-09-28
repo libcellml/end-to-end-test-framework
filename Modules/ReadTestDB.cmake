@@ -7,6 +7,45 @@ macro(read_test_db _DIR _TEST_BASE_DIR)
     endif()
 endmacro()
 
+# Download a test suite definition referenced by TEST_EXTERNAL_REFERENCE.
+#
+# A silent failure here is particularly damaging: an unchecked file(DOWNLOAD) leaves an empty
+# file behind, include() accepts it without complaint, and the referenced test suite disappears
+# from the run without any test failing. Every failure mode below is therefore fatal.
+function(_download_external_reference _NAME _URL _DESTINATION)
+
+    file(DOWNLOAD "${_URL}" "${_DESTINATION}"
+        STATUS _download_status
+        LOG _download_log
+        TLS_VERIFY ON
+    )
+
+    list(GET _download_status 0 _download_code)
+    list(GET _download_status 1 _download_message)
+
+    if (NOT _download_code EQUAL 0)
+        # Do not leave a partial file behind for a later configure to pick up.
+        file(REMOVE "${_DESTINATION}")
+        message(FATAL_ERROR
+            "Failed to download the external reference for test suite '${_NAME}'.\n"
+            "  URL: ${_URL}\n"
+            "  Error: ${_download_message}\n"
+            "  Log:\n${_download_log}")
+    endif()
+
+    # A 404 served with a 200 status, an empty object, or a truncated transfer all land here.
+    file(READ "${_DESTINATION}" _first_byte LIMIT 1)
+    if (_first_byte STREQUAL "")
+        file(REMOVE "${_DESTINATION}")
+        message(FATAL_ERROR
+            "The external reference for test suite '${_NAME}' downloaded as an empty file.\n"
+            "  URL: ${_URL}\n"
+            "Check that the URL is correct and, for a raw.githubusercontent.com URL, that the "
+            "commit and path still exist.")
+    endif()
+
+endfunction()
+
 macro(_process_reference_tests _TEST_BASE_DIR)
   set(TEST_INDEX 0)
   set(_TEST_COUNT ${TEST_COUNT})
@@ -16,11 +55,34 @@ macro(_process_reference_tests _TEST_BASE_DIR)
       set(_current_test_reference ${TEST_${TEST_INDEX}_EXTERNAL_REFERENCE})
       if (_current_test_reference)
         set(_external_reference_file "${_TEST_BASE_DIR}/ExternalReference/${_current_test_name}.cmake")
-        file(DOWNLOAD "${_current_test_reference}" ${_external_reference_file})
+        _download_external_reference("${_current_test_name}" "${_current_test_reference}" "${_external_reference_file}")
+        # add_functional_test() writes into TEST_${TEST_COUNT}_*, so TEST_COUNT is used here as a
+        # write index rather than as a count. It is restored after the loop.
         set(TEST_COUNT ${TEST_INDEX})
+        # The referencing file already set this on the first pass. Clear it so that the check
+        # below sees what the *downloaded* file defined, not what pointed at it.
+        unset(TEST_${TEST_COUNT}_EXTERNAL_REFERENCE)
         add_functional_test(${_external_reference_file})
+        if (TEST_${TEST_COUNT}_EXTERNAL_REFERENCE)
+            message(FATAL_ERROR
+                "The external reference for test suite '${_current_test_name}' is itself an external reference.\n"
+                "  URL: ${_current_test_reference}\n"
+                "  points at: ${TEST_${TEST_COUNT}_EXTERNAL_REFERENCE}\n"
+                "Chained external references are not supported. Reference the test suite definition "
+                "directly instead.")
+        elseif (NOT TEST_${TEST_COUNT}_GIT_REPO)
+            message(FATAL_ERROR
+                "The external reference for test suite '${_current_test_name}' did not define a test suite.\n"
+                "  URL: ${_current_test_reference}\n"
+                "  File: ${_external_reference_file}\n"
+                "The downloaded file parsed as CMake but set no TEST_GIT_REPO. Check that the URL points "
+                "at a test suite definition file and not, for example, at a rendered HTML page or a redirect.")
+        endif()
       endif()
   endwhile()
+  # Restore the count. Without this, TEST_COUNT is left at the index of the last referenced
+  # suite, and every suite the database defines after that one is silently never processed.
+  set(TEST_COUNT ${_TEST_COUNT})
 endmacro()
 
 macro(read_test_db_dir _DIR _TEST_BASE_DIR)
