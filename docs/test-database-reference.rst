@@ -70,7 +70,7 @@ This is the part that catches people out. There are **two** independent indices,
 ``CMAKELISTS_DIR`` and ``CMAKE_DEFS`` are aligned with each other::
 
     set(TEST_CMAKELISTS_DIR  dir_a       dir_b       dir_c)
-    set(TEST_CMAKE_DEFS      "NONE"      "NONE"      "FOO=bar")
+    set(TEST_CMAKE_DEFS      "NOTFOUND"  "NOTFOUND"  "FOO=bar")
                              ^-----------^-----------^ same index
 
 ``TARGETS``, ``TARGETS_ARGS``, ``EXPECTED_RESULTS`` and ``EXPECTED_RETURN_CODES`` are aligned with
@@ -93,17 +93,19 @@ Placeholder values
 CMake lists cannot contain empty elements, so a target that needs no arguments still needs an entry
 to keep the indices lined up. Two placeholder values are recognised:
 
-==============  ================================================================================
-Placeholder     Use
-==============  ================================================================================
-``NOTFOUND``    In ``TARGETS_ARGS``, ``EXPECTED_RESULTS`` and ``EXPECTED_RETURN_CODES``.
-                Means "nothing here", which for a return code means zero.
-``NONE``        In ``CMAKE_DEFS``. Means "no definitions for this directory".
-==============  ================================================================================
+``NOTFOUND`` means "nothing here", in **every** setting. Which placeholder to write never depends
+on which setting is being written.
 
-``NOTFOUND`` is not an arbitrary choice --- it is what CMake's own ``list(GET ...)`` returns when the
-list is empty, so omitting ``TARGETS_ARGS`` entirely behaves identically to filling it with
-``NOTFOUND``. That only holds for a list that is *completely* empty. A list that is present but
+It is what CMake's own ``list(GET ...)`` returns when a list is empty, so filling a list with
+``NOTFOUND`` and omitting it entirely behave identically.
+
+.. note::
+
+   ``NONE`` was once the placeholder for ``CMAKE_DEFS`` alone. Everywhere else it meant something
+   else, silently --- a literal argument in ``TARGETS_ARGS``, a path in ``EXPECTED_RESULTS``. It is
+   now rejected wherever it appears, with a message pointing at ``NOTFOUND``.
+
+Omitting a list entirely is the same as filling it with placeholders. A list that is present but
 **shorter** than ``TARGETS`` is rejected as the database is read:
 
 .. code-block:: text
@@ -136,6 +138,11 @@ For example, a target invoked as ``solve -n 1000 -dt 0.008 -m model.cellml`` is 
     set(TEST_TARGETS_ARGS
       "-n|1000|-dt|0.008|-m|resources/code/solver/integrate_sine.cellml"
     )
+
+An entry is a variable name and a value, **not** a command-line argument: it becomes a ``set()``
+call around the ``add_subdirectory()``. Write ``INPUT=...``, not ``-DINPUT=...``, even though the
+project being configured documents the option as ``-DINPUT``. A name that is not a valid CMake
+variable name is rejected.
 
 Use ``|`` in ``CMAKE_DEFS`` too, to set more than one variable for a single CMake directory::
 
@@ -297,7 +304,7 @@ A complete example
     )
 
     set(TEST_CMAKE_DEFS
-      "NONE"
+      "NOTFOUND"
       "INPUT_MODEL=@TEST_ROOT@/resources/code/solver/integrate_sine.cellml"
     )
 

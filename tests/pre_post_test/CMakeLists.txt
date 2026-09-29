@@ -52,7 +52,7 @@ endfunction()
 add_pre_post_test(single           DEFS "A=1"                          VALUES "A=1")
 add_pre_post_test(value-with-spaces DEFS "MSG=hello there world"       VALUES "MSG=hello there world")
 add_pre_post_test(empty-value      DEFS "EMPTY="                       VALUES "EMPTY=")
-add_pre_post_test(none             DEFS "NONE")
+add_pre_post_test(notfound         DEFS "NOTFOUND")
 
 # Several definitions in one entry, separated by a pipe the way TARGETS_ARGS and TARGETS_ENV are.
 add_pre_post_test(two-definitions  DEFS "A=1|B=2"                      VALUES "A=1;B=2")
@@ -67,6 +67,8 @@ add_pre_post_test(test-root        DEFS "INPUT_MODEL=@TEST_ROOT@/m.cellml"
                                    VALUES "INPUT_MODEL=/repo/root/m.cellml")
 
 # Malformed entries are rejected rather than silently mis-parsed.
+# NONE was the placeholder here alone, and meant something else everywhere it appeared.
+add_pre_post_test(legacy-none      DEFS "NONE"        ERROR "no longer a placeholder")
 add_pre_post_test(no-equals        DEFS "JUSTNAME"    ERROR "is not of the form NAME=value")
 add_pre_post_test(empty-name       DEFS "=orphaned"   ERROR "has an empty name")
 add_pre_post_test(no-equals-second DEFS "A=1|JUSTNAME" ERROR "is not of the form NAME=value")

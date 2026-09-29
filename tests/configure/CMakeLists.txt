@@ -222,6 +222,23 @@ add_configure_test(single-file-not-cmake "not-cmake/notes.txt" FAIL
     LOG_MATCH "is not a .cmake file")
 
 # ---------------------------------------------------------------------------------------------
+# NOTFOUND, NONE and the empty string all mean "nothing here", in every setting. Which spelling
+# is used must never depend on which setting is being written: getting that wrong used to pass a
+# literal NONE to the program, or point EXPECTED_RESULTS at a path called NONE, in silence.
+# ---------------------------------------------------------------------------------------------
+
+add_configure_test(canonical-placeholders canonical-placeholders PASS
+    MATCH "EXPECTED_RETURN_CODE=1"
+    NOT_MATCH "\\|NOTFOUND|||EXPECTED_OUTPUT=.*NOTFOUND|||set\\(NOTFOUND")
+
+# NONE is retired. Rejecting it matters more than ignoring it would: in TARGETS_ARGS it used to
+# become a literal argument to the program, and in EXPECTED_RESULTS a path, both in silence.
+add_configure_test(legacy-none legacy-none FAIL
+    LOG_MATCH "CMAKE_DEFS has an entry of 'NONE'|||no longer a placeholder")
+add_configure_test(legacy-none-in-args legacy-none-in-args FAIL
+    LOG_MATCH "TARGETS_ARGS has an entry of 'NONE'")
+
+# ---------------------------------------------------------------------------------------------
 # Expected return codes reach the generated tests, for both kinds of target.
 # ---------------------------------------------------------------------------------------------
 
@@ -250,6 +267,11 @@ add_configure_test(mismatched-args mismatched-args FAIL
 add_configure_test(mismatched-expected-results mismatched-expected-results FAIL
     LOG_MATCH "TEST_EXPECTED_RESULTS has 1 entries|||TEST_TARGETS has 3 entries"
     LOG_NOT_MATCH "${_RAW_LIST_ERROR}")
+
+# The framework refuses it too, not just the validator, since a database can be used without
+# being validated first.
+add_configure_test(defs-dash-d defs-dash-d FAIL
+    LOG_MATCH "starts with '-D'|||Drop the '-D'")
 
 add_configure_test(mismatched-defs mismatched-defs FAIL
     LOG_MATCH "TEST_CMAKE_DEFS has 2 entries|||TEST_CMAKELISTS_DIR has 3 entries"

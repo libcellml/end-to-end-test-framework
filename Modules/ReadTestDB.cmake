@@ -128,7 +128,7 @@ endmacro()
 # reported against a generated file, which says nothing about which suite or which setting is at
 # fault. Checking as the database is read reports it against the definition file instead, and does
 # so in the acquire phase, before anything has been cloned or generated.
-function(_check_index_aligned _suite _file _prefix _anchor_name _anchor _other_name _other _placeholder)
+function(_check_index_aligned _suite _file _prefix _anchor_name _anchor _other_name _other)
     list(LENGTH _anchor _anchor_length)
     list(LENGTH _other _other_length)
 
@@ -144,7 +144,7 @@ function(_check_index_aligned _suite _file _prefix _anchor_name _anchor _other_n
         "  ${_prefix}${_anchor_name} has ${_anchor_length} entries\n"
         "  defined in: ${_file}\n"
         "These two lists are index-aligned, so ${_prefix}${_other_name} needs one entry for every "
-        "${_prefix}${_anchor_name} entry. Use ${_placeholder} where an entry has nothing to say, or "
+        "${_prefix}${_anchor_name} entry. Use NOTFOUND where an entry has nothing to say, or "
         "leave ${_prefix}${_other_name} out altogether.")
 endfunction()
 
@@ -161,13 +161,13 @@ macro(add_functional_test TEST_DESCRIPTION_FILE)
 
         foreach(_prefix TEST_ PYTEST_)
             _check_index_aligned("${TEST_NAME}" "${TEST_DESCRIPTION_FILE}" "${_prefix}"
-                TARGETS "${${_prefix}TARGETS}" TARGETS_ARGS "${${_prefix}TARGETS_ARGS}" NOTFOUND)
+                TARGETS "${${_prefix}TARGETS}" TARGETS_ARGS "${${_prefix}TARGETS_ARGS}")
             _check_index_aligned("${TEST_NAME}" "${TEST_DESCRIPTION_FILE}" "${_prefix}"
-                TARGETS "${${_prefix}TARGETS}" EXPECTED_RESULTS "${${_prefix}EXPECTED_RESULTS}" NOTFOUND)
+                TARGETS "${${_prefix}TARGETS}" EXPECTED_RESULTS "${${_prefix}EXPECTED_RESULTS}")
             _check_index_aligned("${TEST_NAME}" "${TEST_DESCRIPTION_FILE}" "${_prefix}"
-                TARGETS "${${_prefix}TARGETS}" EXPECTED_RETURN_CODES "${${_prefix}EXPECTED_RETURN_CODES}" NOTFOUND)
+                TARGETS "${${_prefix}TARGETS}" EXPECTED_RETURN_CODES "${${_prefix}EXPECTED_RETURN_CODES}")
             _check_index_aligned("${TEST_NAME}" "${TEST_DESCRIPTION_FILE}" "${_prefix}"
-                CMAKELISTS_DIR "${${_prefix}CMAKELISTS_DIR}" CMAKE_DEFS "${${_prefix}CMAKE_DEFS}" NONE)
+                CMAKELISTS_DIR "${${_prefix}CMAKELISTS_DIR}" CMAKE_DEFS "${${_prefix}CMAKE_DEFS}")
 
             set(${_prefix}${TEST_COUNT}_TARGETS ${${_prefix}TARGETS})
             set(${_prefix}${TEST_COUNT}_TARGETS_ARGS ${${_prefix}TARGETS_ARGS})

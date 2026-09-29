@@ -1,0 +1,9 @@
+# NOTFOUND is the one placeholder, in every setting.
+set(TEST_GIT_REPO "https://example.com/a")
+set(TEST_COMMIT_HASH "abc1234")
+set(TEST_CMAKELISTS_DIR dir_a dir_b)
+set(TEST_CMAKE_DEFS "NOTFOUND" "NOTFOUND")
+set(TEST_TARGETS one two three)
+set(TEST_TARGETS_ARGS "NOTFOUND" "NOTFOUND" "-n|5")
+set(TEST_EXPECTED_RESULTS "NOTFOUND" "NOTFOUND" "NOTFOUND")
+set(TEST_EXPECTED_RETURN_CODES "NOTFOUND" "NOTFOUND" "1")

@@ -1,3 +1,5 @@
+include("${CMAKE_CURRENT_LIST_DIR}/Placeholder.cmake")
+
 #[[
     Write the add_test() call for one target into a test suite's generated project.
 
@@ -45,7 +47,8 @@ function(write_test _kind)
 
     # An argument that names a file in the repository is replaced by its absolute path, so a
     # database can refer to resources by a path relative to the repository root.
-    if (DEFINED _t_ARGS AND NOT _t_ARGS STREQUAL "" AND NOT _t_ARGS STREQUAL "NOTFOUND")
+    test_db_is_placeholder("${_t_ARGS}" "TARGETS_ARGS" _no_arguments)
+    if (NOT _no_arguments)
         string(REPLACE "|" ";" _argument_list "${_t_ARGS}")
         set(_resolved_arguments)
         foreach (_argument IN LISTS _argument_list)
@@ -61,14 +64,14 @@ function(write_test _kind)
 
     # Pre-quoted, so that nothing is emitted at all when there are no expected results.
     set(_expected_output_argument "")
-    if (DEFINED _t_EXPECTED_RESULTS AND NOT _t_EXPECTED_RESULTS STREQUAL ""
-            AND NOT _t_EXPECTED_RESULTS STREQUAL "NOTFOUND")
+    test_db_is_placeholder("${_t_EXPECTED_RESULTS}" "EXPECTED_RESULTS" _no_expected_results)
+    if (NOT _no_expected_results)
         set(_expected_output_argument "\"-DEXPECTED_OUTPUT=${_t_ROOT}/${_t_EXPECTED_RESULTS}\"")
     endif ()
 
     set(_return_code 0)
-    if (DEFINED _t_RETURN_CODE AND NOT _t_RETURN_CODE STREQUAL ""
-            AND NOT _t_RETURN_CODE STREQUAL "NOTFOUND")
+    test_db_is_placeholder("${_t_RETURN_CODE}" "EXPECTED_RETURN_CODES" _no_return_code)
+    if (NOT _no_return_code)
         set(_return_code "${_t_RETURN_CODE}")
     endif ()
     if (NOT _return_code MATCHES "^[0-9]+$" OR _return_code GREATER 255)

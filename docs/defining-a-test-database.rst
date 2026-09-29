@@ -255,10 +255,10 @@ out the database and the framework side by side and run the script:
         runs-on: ubuntu-latest
         steps:
           - name: Check out the test database
-            uses: actions/checkout@v4
+            uses: actions/checkout@v7
 
           - name: Check out the end-to-end test framework
-            uses: actions/checkout@v4
+            uses: actions/checkout@v7
             with:
               repository: libcellml/end-to-end-test-framework
               path: .e2e-framework

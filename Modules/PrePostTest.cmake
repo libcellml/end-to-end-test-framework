@@ -7,6 +7,8 @@
     through -D arguments into nested CMake invocations, where a CMake list would be flattened.
 ]]
 
+include("${CMAKE_CURRENT_LIST_DIR}/Placeholder.cmake")
+
 # Turn one CMAKE_DEFS entry into a list of CMake statements.
 #
 # _defs     the entry, e.g. "A=1|INPUT_MODEL=@TEST_ROOT@/model.cellml"
@@ -34,6 +36,20 @@ function(_split_defs _defs _form _out_var)
             message(FATAL_ERROR "CMake definition '${_item}' has an empty name.")
         endif ()
 
+        # An entry is a variable name, not a command-line argument. Writing it as one produces a
+        # set() for a variable nothing will ever read, which is silent and baffling.
+        if (NOT _key MATCHES "^[A-Za-z_][A-Za-z0-9_]*$")
+            if (_key MATCHES "^-D")
+                message(FATAL_ERROR
+                    "CMake definition '${_item}' starts with '-D'.\n"
+                    "CMAKE_DEFS entries are NAME=value pairs that become set() calls, not "
+                    "command-line arguments. Drop the '-D'.")
+            endif ()
+            message(FATAL_ERROR
+                "CMake definition '${_item}' has '${_key}' as its name, which is not a valid "
+                "CMake variable name.")
+        endif ()
+
         if (_form STREQUAL "SET")
             # Expands @TEST_ROOT@ and anything else in scope at the call site. TEST_ROOT is in
             # scope because write_pre_test() names its third parameter TEST_ROOT for exactly this
@@ -57,14 +73,16 @@ endfunction()
 
 # TEST_ROOT is named, not passed through, so that @TEST_ROOT@ resolves in _split_defs.
 function(write_pre_test _target_file _defs TEST_ROOT)
-    if (NOT _defs STREQUAL "" AND NOT _defs STREQUAL "NONE")
+    test_db_is_placeholder("${_defs}" "CMAKE_DEFS" _no_defs)
+    if (NOT _no_defs)
         _split_defs("${_defs}" "SET" _pre_def_statements)
         _append_statements("${_target_file}" "${_pre_def_statements}")
     endif ()
 endfunction()
 
 function(write_post_test _target_file _defs)
-    if (NOT _defs STREQUAL "" AND NOT _defs STREQUAL "NONE")
+    test_db_is_placeholder("${_defs}" "CMAKE_DEFS" _no_defs)
+    if (NOT _no_defs)
         _split_defs("${_defs}" "UNSET" _post_def_statements)
         _append_statements("${_target_file}" "${_post_def_statements}")
     endif ()

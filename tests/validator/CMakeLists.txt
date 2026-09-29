@@ -97,6 +97,7 @@ add_validator_test(valid-defs-aligned             PASS NOT_MATCH "${_NO_FINDINGS
 add_validator_test(valid-defs-two-definitions     PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-defs-extra-equals        PASS NOT_MATCH "${_NO_FINDINGS}")
 add_validator_test(valid-return-codes             PASS NOT_MATCH "${_NO_FINDINGS}")
+add_validator_test(valid-canonical-placeholders   PASS NOT_MATCH "${_NO_FINDINGS}")
 # A local checkout is never cloned, so there is nothing for a commit hash to pin and its absence
 # is not worth a warning.
 add_validator_test(valid-local-checkout           PASS NOT_MATCH "${_NO_FINDINGS}")
@@ -123,7 +124,7 @@ add_validator_test(invalid-short-args-single-notfound FAIL
     MATCH "TEST_TARGETS_ARGS has 1 entries but TEST_TARGETS has 3")
 add_validator_test(invalid-short-expected-results-single-notfound FAIL
     MATCH "TEST_EXPECTED_RESULTS has 1 entries but TEST_TARGETS has 3")
-add_validator_test(invalid-short-defs-single-none FAIL
+add_validator_test(invalid-short-defs-single-notfound FAIL
     MATCH "TEST_CMAKE_DEFS has 1 entries but TEST_CMAKELISTS_DIR has 2")
 add_validator_test(invalid-short-args-multi FAIL
     MATCH "TEST_TARGETS_ARGS has 2 entries but TEST_TARGETS has 3")
@@ -135,6 +136,14 @@ add_validator_test(invalid-return-code-out-of-range FAIL
     MATCH "a process exit code is between 0 and 255")
 add_validator_test(invalid-short-return-codes FAIL
     MATCH "TEST_EXPECTED_RETURN_CODES has 1 entries but TEST_TARGETS has 3")
+# Writing an entry the way it would look on a command line is the natural mistake, because that
+# is how the project being configured documents the option.
+add_validator_test(invalid-legacy-none FAIL
+    MATCH "no longer a placeholder, use NOTFOUND")
+add_validator_test(invalid-defs-dash-d FAIL
+    MATCH "starts with '-D'")
+add_validator_test(invalid-defs-bad-name FAIL
+    MATCH "is not a valid CMake variable name")
 add_validator_test(invalid-defs-no-equals FAIL
     MATCH "is not of the form NAME=value")
 add_validator_test(invalid-defs-empty-name FAIL

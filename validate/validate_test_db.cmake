@@ -81,6 +81,17 @@ macro(_v_warn _file _message)
     math(EXPR _v_warnings "${_v_warnings}+1")
 endmacro()
 
+# Must match test_db_is_placeholder() in Modules/Placeholder.cmake. Kept separate because this
+# script is standalone and deliberately does not include the framework's modules. NONE is reported
+# by the caller rather than here, so that every one of them is listed in a single run.
+function(_v_is_placeholder _value _out)
+    if (_value STREQUAL "" OR _value STREQUAL "NOTFOUND")
+        set(${_out} TRUE PARENT_SCOPE)
+    else ()
+        set(${_out} FALSE PARENT_SCOPE)
+    endif ()
+endfunction()
+
 # A commit hash is pinned if it is hexadecimal and long enough to be unambiguous. CMake regular
 # expressions have no bounded repetition, so the length is checked separately.
 function(_v_is_pinned _value _out)
@@ -160,6 +171,18 @@ macro(_v_check_definition _v_file _v_is_reference)
             _v_warn("${_v_file}" "defines no targets, so it contributes no tests")
         endif ()
 
+        # NONE was once the placeholder for CMAKE_DEFS and meant something else, silently, in
+        # every other setting. It is retired; point at the replacement wherever it appears.
+        foreach (_v_p TEST_ PYTEST_)
+            foreach (_v_setting TARGETS_ARGS EXPECTED_RESULTS EXPECTED_RETURN_CODES CMAKE_DEFS)
+                foreach (_v_entry IN LISTS ${_v_p}${_v_setting})
+                    if (_v_entry STREQUAL "NONE")
+                        _v_error("${_v_file}" "${_v_p}${_v_setting} has an entry of 'NONE'; NONE is no longer a placeholder, use NOTFOUND")
+                    endif ()
+                endforeach ()
+            endforeach ()
+        endforeach ()
+
         foreach (_v_p TEST_ PYTEST_)
             set(_v_targets "${${_v_p}TARGETS}")
             list(LENGTH _v_targets _v_n_targets)
@@ -189,10 +212,11 @@ macro(_v_check_definition _v_file _v_is_reference)
                 _v_error("${_v_file}" "${_v_p}CMAKE_DEFS has ${_v_n_defs} entries but ${_v_p}CMAKELISTS_DIR has ${_v_n_dirs}; these two are index-aligned with each other, not with ${_v_p}TARGETS")
             endif ()
 
-            # A return code is what the target is expected to exit with; NOTFOUND means the
+            # A return code is what the target is expected to exit with; a placeholder means the
             # default of zero.
             foreach (_v_code IN LISTS ${_v_p}EXPECTED_RETURN_CODES)
-                if (NOT _v_code STREQUAL "NOTFOUND")
+                _v_is_placeholder("${_v_code}" _v_placeholder)
+                if (NOT _v_placeholder)
                     if (NOT _v_code MATCHES "^[0-9]+$")
                         _v_error("${_v_file}" "${_v_p}EXPECTED_RETURN_CODES entry '${_v_code}' is not a number; use NOTFOUND for a target that is expected to succeed")
                     elseif (_v_code GREATER 255)
@@ -206,7 +230,13 @@ macro(_v_check_definition _v_file _v_is_reference)
             # An entry holds one or more NAME=value pairs separated by '|'. A value may itself
             # contain '=', so only the first one separates the name from the value.
             foreach (_v_def IN LISTS _v_defs)
-                if (NOT _v_def STREQUAL "NONE")
+                _v_is_placeholder("${_v_def}" _v_placeholder)
+                # A retired placeholder is reported once, by the check above, rather than also
+                # being parsed as a definition and reported again.
+                if (_v_def STREQUAL "NONE")
+                    set(_v_placeholder TRUE)
+                endif ()
+                if (NOT _v_placeholder)
                     string(REPLACE "|" ";" _v_def_parts "${_v_def}")
                     foreach (_v_part IN LISTS _v_def_parts)
                         string(FIND "${_v_part}" "=" _v_separator)
@@ -214,6 +244,13 @@ macro(_v_check_definition _v_file _v_is_reference)
                             _v_error("${_v_file}" "${_v_p}CMAKE_DEFS entry '${_v_part}' is not of the form NAME=value; separate multiple definitions with a pipe")
                         elseif (_v_separator EQUAL 0)
                             _v_error("${_v_file}" "${_v_p}CMAKE_DEFS entry '${_v_part}' has an empty name")
+                        else ()
+                            string(SUBSTRING "${_v_part}" 0 ${_v_separator} _v_def_name)
+                            if (_v_def_name MATCHES "^-D")
+                                _v_error("${_v_file}" "${_v_p}CMAKE_DEFS entry '${_v_part}' starts with '-D'; entries become set() calls, not command-line arguments, so drop the '-D'")
+                            elseif (NOT _v_def_name MATCHES "^[A-Za-z_][A-Za-z0-9_]*$")
+                                _v_error("${_v_file}" "${_v_p}CMAKE_DEFS entry '${_v_part}' has '${_v_def_name}' as its name, which is not a valid CMake variable name")
+                            endif ()
                         endif ()
                     endforeach ()
                 endif ()
