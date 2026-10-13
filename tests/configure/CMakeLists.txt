@@ -253,6 +253,46 @@ add_configure_test(mismatched-return-codes mismatched-return-codes FAIL
     LOG_MATCH "TEST_EXPECTED_RETURN_CODES has 2 entries|||TEST_TARGETS has 3 entries")
 
 # ---------------------------------------------------------------------------------------------
+# @TEST_ROOT@ expands the same way in every setting that carries a value. It used to work in
+# TARGETS_ENV and CMAKE_DEFS but be passed through literally in TARGETS_ARGS.
+# ---------------------------------------------------------------------------------------------
+
+add_configure_test(args-test-root args-test-root PASS
+    MATCH "TEST_CMD=.*tests/suite/models/sine\\.cellml|||PYTHONPATH=.*tests/suite/utilities"
+    NOT_MATCH "@TEST_ROOT@")
+
+# ---------------------------------------------------------------------------------------------
+# The macOS deployment target reaches the generated suite projects, where the compiling happens.
+# ---------------------------------------------------------------------------------------------
+
+add_configure_test(osx-deployment-target-default cxx-only PASS
+    MATCH "CMAKE_OSX_DEPLOYMENT_TARGET \\\"14.0\\\"")
+
+add_configure_test(osx-deployment-target-override cxx-only PASS
+    ARGS "-DE2E_OSX_DEPLOYMENT_TARGET=15.2"
+    MATCH "CMAKE_OSX_DEPLOYMENT_TARGET \\\"15.2\\\""
+    NOT_MATCH "CMAKE_OSX_DEPLOYMENT_TARGET \\\"14.0\\\"")
+
+# ---------------------------------------------------------------------------------------------
+# The interpreter is reported once, with its version, where it can be seen.
+# ---------------------------------------------------------------------------------------------
+
+if (Python3_Interpreter_FOUND)
+    add_configure_test(python-reported-with-version python-only PASS
+        LOG_MATCH "Python tests will run with: /.*\\(Python [0-9]+\\.[0-9]+.*found by CMake\\)"
+        LOG_NOT_MATCH "Found Python3:")
+
+    add_configure_test(python-reported-when-specified python-only PASS
+        ARGS "-DE2E_PYTHON_EXECUTABLE=${Python3_EXECUTABLE}"
+        LOG_MATCH "set by PYTHON_EXECUTABLE")
+
+    # EXISTS alone does not prove an interpreter runs.
+    add_configure_test(python-not-runnable python-only FAIL
+        ARGS "-DE2E_PYTHON_EXECUTABLE=${CMAKE_CURRENT_SOURCE_DIR}/databases/python-only/solo.cmake"
+        LOG_MATCH "could not be run")
+endif ()
+
+# ---------------------------------------------------------------------------------------------
 # Index-aligned lists of the wrong length. Reading the database rejects these, naming the suite,
 # the two settings and their counts. LOG_NOT_MATCH pins that we stop before CMake's own
 # 'list index out of range', which is what used to surface instead, from a generated file.

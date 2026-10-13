@@ -4,7 +4,18 @@
 ]]
 
 cmake_minimum_required(VERSION 3.26)
-set(CMAKE_OSX_DEPLOYMENT_TARGET "11" CACHE STRING "Minimum OS X deployment version")
+
+# Must be settled before project(), and forwarded to everything this build configures: the
+# comparison application, and each generated test suite project. A suite compiled against a
+# library built for a newer minimum will not link.
+set(_ANNOTATION "The minimum macOS version to build for. Ignored on other platforms.")
+set(E2E_OSX_DEPLOYMENT_TARGET "14.0" CACHE STRING ${_ANNOTATION})
+if (DEFINED OSX_DEPLOYMENT_TARGET)
+    set(E2E_OSX_DEPLOYMENT_TARGET ${OSX_DEPLOYMENT_TARGET} CACHE STRING ${_ANNOTATION} FORCE)
+endif()
+unset(OSX_DEPLOYMENT_TARGET CACHE)
+set(CMAKE_OSX_DEPLOYMENT_TARGET "${E2E_OSX_DEPLOYMENT_TARGET}" CACHE STRING
+    "Internalise CMAKE_OSX_DEPLOYMENT_TARGET, manipulate via E2E_OSX_DEPLOYMENT_TARGET." FORCE)
 
 project(End-To-End-Testing)
 
@@ -188,6 +199,7 @@ ExternalProject_Add(compare_app
     GIT_REPOSITORY ${E2E_COMPARE_APP_REPO}
     GIT_TAG ${E2E_COMPARE_APP_HASH}
     CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/install
+               -DCMAKE_OSX_DEPLOYMENT_TARGET=${E2E_OSX_DEPLOYMENT_TARGET}
 )
 
 add_custom_target(acquire_tests
@@ -212,6 +224,7 @@ add_custom_target(configure_tests
         -DlibCellML_DIR="${libCellML_DIR}"
         -DCOMPARE_EXE="${CMAKE_CURRENT_BINARY_DIR}/install/bin/numdiff"
         -DE2E_PYTHON_EXECUTABLE="${E2E_PYTHON_EXECUTABLE}"
+        -DE2E_OSX_DEPLOYMENT_TARGET="${E2E_OSX_DEPLOYMENT_TARGET}"
         ${CMAKE_CURRENT_SOURCE_DIR}/configure
     COMMAND ${CMAKE_COMMAND} --build . ${MULTICONFIG_BUILD_CONFIG}
     COMMENT "Configure tests."

@@ -6,9 +6,13 @@
 #  - libCellML_DIR: A directory where libcellml-config.cmake exists.
 
 cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
-set(CMAKE_OSX_DEPLOYMENT_TARGET "11" CACHE STRING "Minimum OS X deployment version")
 
 project(testsetup VERSION 1.0 LANGUAGES NONE)
+
+# Only forwarded into the generated suite projects; this project compiles nothing itself.
+if (NOT DEFINED E2E_OSX_DEPLOYMENT_TARGET OR E2E_OSX_DEPLOYMENT_TARGET STREQUAL "")
+    set(E2E_OSX_DEPLOYMENT_TARGET "14.0")
+endif ()
 
 # The top level always passes these, but each is only read on some paths: libCellML for suites
 # with compiled targets, the interpreter for suites with Python tests. Reading them here marks
@@ -61,16 +65,35 @@ if (_python_needed)
                 "PYTHON_EXECUTABLE is set to '${E2E_PYTHON_EXECUTABLE}', which does not exist.")
         endif ()
         set(PYTHON_COMMAND "${E2E_PYTHON_EXECUTABLE}")
+        set(_python_origin "set by PYTHON_EXECUTABLE")
     else ()
-        find_package(Python3 COMPONENTS Interpreter)
+        # QUIET because this phase reports the interpreter itself, below. Two lines saying
+        # different things about Python, in the middle of a build, is how it gets missed.
+        find_package(Python3 COMPONENTS Interpreter QUIET)
         if (NOT Python3_Interpreter_FOUND)
             message(FATAL_ERROR
                 "The test database defines Python tests but no Python interpreter was found.\n"
                 "Install Python, or pass -DPYTHON_EXECUTABLE=<path> to the configure step.")
         endif ()
         set(PYTHON_COMMAND "${Python3_EXECUTABLE}")
+        set(_python_origin "found by CMake")
     endif ()
-    message(STATUS "Python tests will run with: ${PYTHON_COMMAND}")
+
+    # Asking for the version also proves the interpreter runs, which EXISTS alone does not.
+    execute_process(
+        COMMAND "${PYTHON_COMMAND}" --version
+        RESULT_VARIABLE _python_version_result
+        OUTPUT_VARIABLE _python_version
+        ERROR_VARIABLE _python_version
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_STRIP_TRAILING_WHITESPACE
+    )
+    if (NOT "${_python_version_result}" STREQUAL "0")
+        message(FATAL_ERROR
+            "The Python interpreter '${PYTHON_COMMAND}' could not be run.\n"
+            "  ${_python_version}")
+    endif ()
+    set(PYTHON_SUMMARY "${PYTHON_COMMAND} (${_python_version}, ${_python_origin})")
 endif ()
 
 # Each suite gets its own CMake project, built in its own directory.
@@ -131,7 +154,7 @@ find_package(libCellML REQUIRED CONFIG)
 
     file(WRITE ${SETUP_CMAKELISTS_FILE} "
 cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
-set(CMAKE_OSX_DEPLOYMENT_TARGET \"11\" CACHE STRING \"Minimum OS X deployment version\")
+set(CMAKE_OSX_DEPLOYMENT_TARGET \"${E2E_OSX_DEPLOYMENT_TARGET}\" CACHE STRING \"Minimum OS X deployment version\")
 
 project(${_suite_project_name} VERSION 1.0 LANGUAGES ${_suite_languages})
 
@@ -249,4 +272,11 @@ endwhile()
 # at each of their build directories in turn.
 file(WRITE "${TESTS_BASE_DIR}/suites.cmake"
     "# Generated. Test suites with a project under _projects/, in the order they were read.\nset(E2E_SUITES \"${_generated_suites}\")\n")
+
+# A short summary last, where it is not buried in the middle of the build output.
+list(LENGTH _generated_suites _generated_suite_count)
+message(STATUS "Configured ${_generated_suite_count} test suite(s): ${_generated_suites}")
+if (_python_needed)
+    message(STATUS "Python tests will run with: ${PYTHON_SUMMARY}")
+endif ()
 

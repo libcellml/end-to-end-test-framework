@@ -167,8 +167,9 @@ takes a bare string argument.
 The ``@TEST_ROOT@`` placeholder
 ===============================
 
-``TARGETS_ENV`` and ``CMAKE_DEFS`` values are passed through ``string(CONFIGURE ... @ONLY)`` before
-use, so ``@TEST_ROOT@`` expands to the absolute path of the cloned repository::
+``TARGETS_ARGS``, ``TARGETS_ENV`` and ``CMAKE_DEFS`` values are passed through
+``string(CONFIGURE ... @ONLY)`` before use, so ``@TEST_ROOT@`` expands to the absolute path of the
+cloned repository::
 
     set(PYTEST_TARGETS_ENV
       "PYTHONPATH=@TEST_ROOT@/resources/code/utilities/"
@@ -177,6 +178,11 @@ use, so ``@TEST_ROOT@`` expands to the absolute path of the cloned repository::
     set(TEST_CMAKE_DEFS
       "INPUT_MODEL=@TEST_ROOT@/resources/code/solver/integrate_sine.cellml"
     )
+
+In ``TARGETS_ARGS`` it is only needed for a path that has to be absolute, or one that does not
+exist yet: an argument naming a file that is already in the repository is absolutised anyway, as
+described above. ``EXPECTED_RESULTS`` does not take it, because the framework already prefixes that
+value with the repository root.
 
 The same placeholder works inside ``.stdout`` expected-output files, which are configured with
 ``@ONLY`` before comparison. ``@TEST_WORKING_DIR@`` and ``@TEST_NAME@`` are available there too.

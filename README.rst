@@ -2,7 +2,6 @@
 ==================
 End-to-end testing
 ==================
-
 This repository contains a framework for end-to-end testing of applications that use libCellML.
 
 Requirements
@@ -14,7 +13,6 @@ Requirements
 
 Setup
 =====
-
 Clone this repository into your computer::
 
   git clone https://github.com/libcellml/end-to-end-testing.git
@@ -25,7 +23,6 @@ Create a build directory::
 
 Configure
 =========
-
 From inside the build directory::
 
   cmake ../end-to-end-testing
@@ -43,14 +40,15 @@ Options
 
 The framework provides some options to change the default behaviour.
 
-===================  ===================================================================================================
-      Option               Description
-===================  ===================================================================================================
-TEST_DB              Set the location of the test database that defines the tests. A directory, a single .cmake file, or a git repository.
-TEST_DB_COMMIT_HASH  Set the commit hash of the test database to clone.
-libCellML_DIR        Alternative to specifying CMAKE_PREFIX_PATH if libCellML is installed into a non-standard location.
-PYTHON_EXECUTABLE    The Python interpreter used for Python tests. Found automatically if not set.
-===================  ===================================================================================================
+=====================  =====================================================================================================================
+Option                 Description
+=====================  =====================================================================================================================
+TEST_DB                Set the location of the test database that defines the tests. A directory, a single .cmake file, or a git repository.
+TEST_DB_COMMIT_HASH    Set the commit hash of the test database to clone.
+libCellML_DIR          Alternative to specifying CMAKE_PREFIX_PATH if libCellML is installed into a non-standard location.
+PYTHON_EXECUTABLE      The Python interpreter used for Python tests. Found automatically if not set.
+OSX_DEPLOYMENT_TARGET  The minimum macOS version to build for. Defaults to 14.0, ignored on other platforms.
+=====================  =====================================================================================================================
 
 TEST_DB
 +++++++
@@ -81,7 +79,6 @@ Run the build command to setup the tests as defined in the test database::
 
 Test
 ====
-
 Run the tests from the build directory with::
 
   ctest
@@ -92,7 +89,6 @@ or::
 
 Documentation
 =============
-
 Detailed documentation lives in the `docs <docs/index.rst>`_ directory:
 
 - `Defining a test database <docs/defining-a-test-database.rst>`_ -- creating a database, iterating locally, publishing it remotely.

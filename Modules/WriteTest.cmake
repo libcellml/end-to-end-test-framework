@@ -45,11 +45,18 @@ function(write_test _kind)
         message(FATAL_ERROR "write_test: kind must be COMPILED or PYTHON, got '${_kind}'.")
     endif ()
 
+    # @TEST_ROOT@ is expanded by string(CONFIGURE), which resolves it against a variable of that
+    # exact name. Set one deliberately rather than relying on what a parameter happens to be
+    # called. Used by ARGS and ENV alike, so that the placeholder works the same in both.
+    set(TEST_ROOT "${_t_ROOT}")
+
     # An argument that names a file in the repository is replaced by its absolute path, so a
-    # database can refer to resources by a path relative to the repository root.
+    # database can refer to resources by a path relative to the repository root. @TEST_ROOT@ is
+    # expanded first, for a path that has to be absolute or does not exist yet.
     test_db_is_placeholder("${_t_ARGS}" "TARGETS_ARGS" _no_arguments)
     if (NOT _no_arguments)
-        string(REPLACE "|" ";" _argument_list "${_t_ARGS}")
+        string(CONFIGURE "${_t_ARGS}" _configured_arguments @ONLY)
+        string(REPLACE "|" ";" _argument_list "${_configured_arguments}")
         set(_resolved_arguments)
         foreach (_argument IN LISTS _argument_list)
             if (EXISTS "${_t_ROOT}/${_argument}")
@@ -80,9 +87,6 @@ function(write_test _kind)
             "and 255.")
     endif ()
 
-    # TARGETS_ENV may contain @TEST_ROOT@. string(CONFIGURE) resolves it against a variable of
-    # that exact name, so set one rather than relying on what a parameter happens to be called.
-    set(TEST_ROOT "${_t_ROOT}")
     string(CONFIGURE "${_t_ENV}" _configured_environment @ONLY)
 
     file(APPEND "${_t_FILE}" "

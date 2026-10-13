@@ -3,7 +3,6 @@
 ==========================
 Defining a test database
 ==========================
-
 The framework ships with no tests of its own. What it runs is decided entirely by the *test
 database* you point it at with ``TEST_DB``. This document covers creating one, running it locally
 while you iterate, and publishing it so that others --- or a CI job --- can use it.
@@ -35,7 +34,6 @@ Point the framework at it::
 
 Working locally
 ===============
-
 A local database is just a directory on disk. ``TEST_DB`` accepts an absolute path, and the
 framework detects that it is a directory rather than a URL and uses it in place --- no clone, and
 ``TEST_DB_COMMIT_HASH`` is ignored.
@@ -100,7 +98,6 @@ path does not exist, the acquire phase stops and says so rather than handing the
 
 Publishing a remote database
 ============================
-
 A remote database is a git repository with the same layout. Nothing else is required --- no
 ``CMakeLists.txt``, no build system, no CI.
 
@@ -190,7 +187,6 @@ before committing it. Otherwise the test passes only on the machine that produce
 
 Validating a database
 =====================
-
 The framework ships a validator that checks a database against the schema without building
 anything. It does not clone the repositories a database names, does not need libCellML and does not
 need a compiler, so it runs in about a second::
@@ -282,7 +278,6 @@ The validator has a test suite of its own, alongside the framework's other self-
 
 Keeping a database current
 ==========================
-
 The maintenance task for a documentation database is bumping ``TEST_COMMIT_HASH`` as the
 documentation repositories move. A useful convention is one commit per bump with the suite name in
 the message, so that a regression can be bisected to a single documentation change.
@@ -298,20 +293,21 @@ Options reference
 All options are passed at configure time. Each only needs to be passed **once** --- the value is
 copied into an internal ``E2E_``-prefixed cache entry that persists across reconfigures.
 
-=======================  ==============================  ===========================================
-Option                   Default                         Description
-=======================  ==============================  ===========================================
-``TEST_DB``              the canonical database repo     Directory path, or git URL, of the database.
-``TEST_DB_COMMIT_HASH``  ``main``                        Commit/tag/branch of a remote database.
-                                                         Ignored for a local directory.
-``libCellML_DIR``        --                              Directory containing
-                                                         ``libcellml-config.cmake``.
-``CMAKE_PREFIX_PATH``    --                              Alternative way to locate libCellML.
-``BUILD_TYPE``           ``Release``                     Build type for single-config generators.
-``TEST_VERBOSE``         ``OFF``                         Adds ``-V`` to the ``make test`` target.
-``COMPARE_APP_REPO``     cmlibs-dependencies/numdiff     Repository of the comparison application.
-``COMPARE_APP_HASH``     a pinned commit                 Commit/tag of the comparison application.
-=======================  ==============================  ===========================================
+=========================  ===========================  ===================================================
+Option                     Default                      Description
+=========================  ===========================  ===================================================
+``TEST_DB``                the canonical database repo  Directory path, a single .cmake file, or a git URL.
+``TEST_DB_COMMIT_HASH``    ``main``                     Commit/tag/branch of a remote database.
+                                                        Ignored for a local database.
+``libCellML_DIR``          --                           Directory containing ``libcellml-config.cmake``.
+``CMAKE_PREFIX_PATH``      --                           Alternative way to locate libCellML.
+``PYTHON_EXECUTABLE``      found automatically          Interpreter used for Python tests.
+``OSX_DEPLOYMENT_TARGET``  ``14.0``                     Minimum macOS version. Ignored elsewhere.
+``BUILD_TYPE``             ``Release``                  Build type for single-config generators.
+``TEST_VERBOSE``           ``OFF``                      Adds ``-V`` to the ``make test`` target.
+``COMPARE_APP_REPO``       cmlibs-dependencies/numdiff  Repository of the comparison application.
+``COMPARE_APP_HASH``       a pinned commit              Commit/tag of the comparison application.
+=========================  ===========================  ===================================================
 
 To inspect or change a value after the first configure, look for the ``E2E_``-prefixed name in
 ``ccmake`` --- for example ``E2E_TEST_DB`` rather than ``TEST_DB``.
