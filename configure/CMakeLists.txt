@@ -106,13 +106,22 @@ endif ()
 set(PROJECTS_DIR "${TESTS_BASE_DIR}/_projects")
 file(MAKE_DIRECTORY "${PROJECTS_DIR}")
 
+# Index-aligned with _generated_suites: the release unit each suite belongs to, and whether the
+# definition file said so or simply took the default.
 set(_generated_suites)
+set(_generated_groups)
+set(_generated_declared)
 
 set(TEST_INDEX 0)
 while(TEST_INDEX LESS TEST_COUNT)
     math(EXPR TEST_INDEX "${TEST_INDEX}+1")
 
     set(_current_name ${TEST_${TEST_INDEX}_NAME})
+    # _current_name is rewritten inside the target loop below to form each test's name, so the
+    # suite's own name is kept separately for the label and the manifest.
+    set(_current_suite ${TEST_${TEST_INDEX}_NAME})
+    set(_current_group ${TEST_${TEST_INDEX}_GROUP})
+    set(_current_group_declared ${TEST_${TEST_INDEX}_GROUP_DECLARED})
     set(_current_git_repo ${TEST_${TEST_INDEX}_GIT_REPO})
     set(_current_commit_hash ${TEST_${TEST_INDEX}_COMMIT_HASH})
 
@@ -255,6 +264,8 @@ ${_suite_preamble}")
                 write_test(${_write_kind}
                     FILE "${SETUP_CMAKELISTS_FILE}"
                     NAME "${_current_name}"
+                    SUITE "${_current_suite}"
+                    GROUP "${_current_group}"
                     TARGET "${_current_target}"
                     ROOT "${_current_root}"
                     ${_write_test_options})
@@ -265,13 +276,79 @@ ${_suite_preamble}")
     endforeach()
 
     file(APPEND ${SETUP_CMAKELISTS_FILE} "\n")
-    list(APPEND _generated_suites "${_current_name}")
+    list(APPEND _generated_suites "${_current_suite}")
+    list(APPEND _generated_groups "${_current_group}")
+    list(APPEND _generated_declared "${_current_group_declared}")
 endwhile()
+
+# A group that exactly one suite declares, and that no other suite shares, is almost always a
+# misspelling of the group it meant to join. The damage is silent and is precisely what groups
+# exist to prevent: the release unit quietly splits in two, and a suite that should have been
+# gating a piece of documentation stops doing so while every test still passes.
+#
+# Only worth saying when the database has more than one suite. Pointed at a single definition
+# file -- which is how a database is developed -- a group of one is all there can be.
+list(LENGTH _generated_suites _suite_count)
+math(EXPR _last_suite "${_suite_count}-1")
+if (_suite_count GREATER 1)
+    set(_known_groups ${_generated_groups})
+    list(REMOVE_DUPLICATES _known_groups)
+    list(SORT _known_groups)
+
+    foreach (_check_index RANGE 0 ${_last_suite})
+        list(GET _generated_declared ${_check_index} _was_declared)
+        if (NOT _was_declared)
+            continue()
+        endif ()
+        list(GET _generated_groups ${_check_index} _check_group)
+
+        set(_member_count 0)
+        foreach (_other_group IN LISTS _generated_groups)
+            if (_other_group STREQUAL "${_check_group}")
+                math(EXPR _member_count "${_member_count}+1")
+            endif ()
+        endforeach ()
+
+        if (_member_count EQUAL 1)
+            list(GET _generated_suites ${_check_index} _check_suite)
+            message(WARNING
+                "Test suite '${_check_suite}' declares TEST_GROUP '${_check_group}', which no "
+                "other suite shares.\nA group joins suites into one release unit, so a group of "
+                "one is usually a misspelt group name. Groups in this database: ${_known_groups}")
+        endif ()
+    endforeach ()
+endif ()
 
 # The build phase reads this to know which projects to configure and build, and CTest is pointed
 # at each of their build directories in turn.
 file(WRITE "${TESTS_BASE_DIR}/suites.cmake"
-    "# Generated. Test suites with a project under _projects/, in the order they were read.\nset(E2E_SUITES \"${_generated_suites}\")\n")
+    "# Generated. Test suites with a project under _projects/, in the order they were read.\nset(E2E_SUITES \"${_generated_suites}\")\nset(E2E_SUITE_GROUPS \"${_generated_groups}\")\n")
+
+# The same mapping again for whatever reports the run. CTest records a test's labels but not
+# which of them names the suite and which names the release unit, and label order is not
+# something to rely on, so the mapping is published rather than inferred. JSON because the thing
+# that reads it is a reporting script, not CMake.
+set(_suites_json "{\n  \"suites\": [\n")
+set(_json_separator "")
+set(_json_indices)
+if (_suite_count GREATER 0)
+    foreach (_json_index RANGE 0 ${_last_suite})
+        list(APPEND _json_indices ${_json_index})
+    endforeach ()
+endif ()
+foreach (_json_index IN LISTS _json_indices)
+    list(GET _generated_suites ${_json_index} _json_suite)
+    list(GET _generated_groups ${_json_index} _json_group)
+    foreach (_json_field _json_suite _json_group)
+        string(REPLACE "\\" "\\\\" ${_json_field} "${${_json_field}}")
+        string(REPLACE "\"" "\\\"" ${_json_field} "${${_json_field}}")
+    endforeach ()
+    string(APPEND _suites_json
+        "${_json_separator}    {\"name\": \"${_json_suite}\", \"group\": \"${_json_group}\"}")
+    set(_json_separator ",\n")
+endforeach ()
+string(APPEND _suites_json "\n  ]\n}\n")
+file(WRITE "${TESTS_BASE_DIR}/suites.json" "${_suites_json}")
 
 # A short summary last, where it is not buried in the middle of the build output.
 list(LENGTH _generated_suites _generated_suite_count)

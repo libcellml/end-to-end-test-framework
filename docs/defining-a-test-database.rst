@@ -139,6 +139,45 @@ Put a commit SHA in the URL, not a branch name --- a ``main`` URL changes under 
 that breaks is a fatal error naming the suite and the URL, so it will stop the run rather than
 silently drop the suite.
 
+Testing one piece of documentation from two files
+-------------------------------------------------
+
+A suite's result normally stands for one piece of documentation: if ``libcellml_howto`` passes,
+the how-to documentation is fit to publish. Sooner or later that stops fitting --- the tutorial
+documentation, say, is exercised both by the tutorial walkthroughs and by the resources code
+beside them, which live in different definition files because they are maintained differently.
+
+Splitting them is right; what you need is for either failing to mark the documentation failed.
+``TEST_GROUP`` says so, by naming the release unit a suite belongs to::
+
+    # libcellml_tutorials.cmake
+    set(TEST_EXTERNAL_REFERENCE "https://raw.githubusercontent.com/.../libcellml_tutorials.cmake")
+    # No TEST_GROUP, so the release unit is 'libcellml_tutorials'.
+
+    # libcellml_tutorial_resources.cmake
+    set(TEST_GROUP libcellml_tutorials)
+    set(TEST_GIT_REPO "https://github.com/libcellml/tutorials")
+    ...
+
+Both suites' tests now carry the ``unit:libcellml_tutorials`` label, and the release question
+has a single answer, whose exit status is the verdict:
+
+.. code-block:: bash
+
+    ctest -L unit:libcellml_tutorials
+
+Each test also carries a ``suite:`` label of its own suite's name, so when the unit fails you can
+still ask which file to go and fix with ``ctest -L suite:libcellml_tutorial_resources``.
+
+Note that ``TEST_GROUP`` may be set beside a ``TEST_EXTERNAL_REFERENCE``, even though everything
+else in a referencing file is discarded. That is deliberate: a database that references a suite
+maintained elsewhere can still decide what that suite releases.
+
+The alternative is to merge the two files into one suite. That is the better answer when both
+really are the same thing --- one repository, one commit, one set of targets --- and the worse
+one when they are maintained separately or come from different repositories, since a single
+suite has a single ``TEST_GIT_REPO`` and a single commit hash.
+
 A worked example: documenting-code tests
 ========================================
 

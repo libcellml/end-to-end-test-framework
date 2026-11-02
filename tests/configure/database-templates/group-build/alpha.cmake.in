@@ -1,0 +1,3 @@
+set(TEST_GIT_REPO "@REPOS_DIR@/alpha")
+set(TEST_CMAKELISTS_DIR .)
+set(TEST_TARGETS shared alpha_only)

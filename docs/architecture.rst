@@ -145,7 +145,14 @@ and generates two files into ``<build>/tests``:
     neither, so its project declares ``LANGUAGES NONE`` and does not look for libCellML.
 
 ``suites.cmake``
-    A manifest naming the suites that produced a project, read by the build phase.
+    A manifest naming the suites that produced a project and the release unit each belongs to,
+    read by the build phase.
+
+``suites.json``
+    The same suite-to-release-unit mapping, for whatever reports the run. Copied beside the
+    built tests so it sits next to the ``Testing/`` directory CTest writes. It is published
+    rather than inferred because CTest records a test's labels but not which of them names the
+    suite and which names the unit.
 
 The generation loop iterates over every suite, and within each suite over the two prefixes
 ``TEST_`` (compiled C++ targets) and ``PYTEST_`` (Python scripts). For each prefix it runs two
@@ -186,7 +193,14 @@ Phase 4 --- build
 suite, configures its project into ``build-build-*/<suite>`` and builds it. This compiles every
 example program and registers every ``add_test()`` call. It then writes
 ``build-build-*/CTestTestfile.cmake``, which ``subdirs()`` into each suite's build directory so
-that CTest run from the top of the build tree finds every test.
+that CTest run from the top of the build tree finds every test, and copies ``suites.json`` in
+beside it.
+
+Every test carries two CTest labels, ``suite:<name>`` and ``unit:<name>``, the second naming
+the release unit the suite belongs to (by default the suite's own name). Labels cross the
+``subdirs()`` boundary, so ``ctest -L unit:<name>`` selects an entire release unit however many
+suites form it, and the exit status of that run is the verdict for the documentation it
+gates.
 
 The loop lives in a script rather than in the custom target because how many suites there are is
 not known until the database has been read, which happens at build time.

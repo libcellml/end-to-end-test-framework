@@ -1,0 +1,5 @@
+set(TEST_GIT_REPO "https://example.com/beta")
+set(TEST_COMMIT_HASH "def5678")
+set(TEST_GROUP alpha)
+set(TEST_CMAKELISTS_DIR .)
+set(TEST_TARGETS beta_prog)

@@ -39,6 +39,7 @@ set(_v_suite_vars
     TEST_GIT_REPO
     TEST_COMMIT_HASH
     TEST_EXTERNAL_REFERENCE
+    TEST_GROUP
 )
 set(_v_target_vars
     TARGETS
@@ -59,6 +60,12 @@ endforeach ()
 set(_v_errors 0)
 set(_v_warnings 0)
 set(_v_seen_unknown_vars)
+
+# The effective group of every suite, and the subset that said so explicitly. Collected across
+# the whole database, because a group of one can only be recognised once every file has been read.
+set(_v_all_groups)
+set(_v_declared_files)
+set(_v_declared_groups)
 
 function(_v_report _level _file _message)
     get_filename_component(_name "${_file}" NAME)
@@ -120,6 +127,18 @@ endmacro()
 # Check one already-included definition. Kept separate from the include so that a definition
 # downloaded via TEST_EXTERNAL_REFERENCE can be put through exactly the same checks.
 macro(_v_check_definition _v_file _v_is_reference)
+
+    # Checked ahead of the branch below, because a file that delegates to an external reference
+    # may still declare its release unit: that is local policy, and the one setting a referencing
+    # file is allowed to contribute. A group becomes a CTest label selected with 'ctest -L'.
+    if (DEFINED TEST_GROUP AND NOT "${TEST_GROUP}" STREQUAL "")
+        list(LENGTH TEST_GROUP _v_n_group)
+        if (_v_n_group GREATER 1)
+            _v_error("${_v_file}" "sets TEST_GROUP to ${_v_n_group} values; a suite belongs to exactly one release unit, so TEST_GROUP takes a single name")
+        elseif (NOT TEST_GROUP MATCHES "^[A-Za-z0-9_][A-Za-z0-9_-]*$")
+            _v_error("${_v_file}" "TEST_GROUP '${TEST_GROUP}' is not a valid group name; use letters, digits, underscores and hyphens, and do not start with a hyphen")
+        endif ()
+    endif ()
 
     if (TEST_EXTERNAL_REFERENCE AND NOT ${_v_is_reference})
         if (TEST_GIT_REPO)
@@ -321,6 +340,19 @@ foreach (_v_file IN LISTS _v_files)
 
     _v_check_definition("${_v_file}" FALSE)
 
+    # Recorded from the file itself rather than from a definition it references: a group declared
+    # here outranks the referenced one, and a file that declares nothing falls back to its own
+    # name, which is knowable without the network.
+    get_filename_component(_v_suite_name "${_v_file}" NAME_WE)
+    list(LENGTH TEST_GROUP _v_n_group)
+    if (DEFINED TEST_GROUP AND _v_n_group EQUAL 1 AND NOT "${TEST_GROUP}" STREQUAL "")
+        list(APPEND _v_all_groups "${TEST_GROUP}")
+        list(APPEND _v_declared_files "${_v_file}")
+        list(APPEND _v_declared_groups "${TEST_GROUP}")
+    else ()
+        list(APPEND _v_all_groups "${_v_suite_name}")
+    endif ()
+
     if (TEST_EXTERNAL_REFERENCE)
         set(_v_reference_url "${TEST_EXTERNAL_REFERENCE}")
         if (CHECK_REFERENCES)
@@ -350,6 +382,38 @@ foreach (_v_file IN LISTS _v_files)
         endif ()
     endif ()
 endforeach ()
+
+# A declared group that no other suite shares is almost always a misspelling of the group it
+# meant to join, and the damage is silent: the release unit splits in two and a suite quietly
+# stops gating the documentation it was added to gate, with every test still passing. The
+# framework warns about this as well; catching it here catches it without a build.
+#
+# Only meaningful across a whole database. Pointed at a single definition file, which is how a
+# database is developed, a group of one is all there can be.
+list(LENGTH _v_files _v_n_files)
+if (_v_n_files GREATER 1 AND _v_declared_groups)
+    set(_v_unique_groups ${_v_all_groups})
+    list(REMOVE_DUPLICATES _v_unique_groups)
+    list(SORT _v_unique_groups)
+
+    list(LENGTH _v_declared_groups _v_n_declared)
+    math(EXPR _v_last_declared "${_v_n_declared}-1")
+    foreach (_v_declared_index RANGE 0 ${_v_last_declared})
+        list(GET _v_declared_groups ${_v_declared_index} _v_this_group)
+
+        set(_v_members 0)
+        foreach (_v_other_group IN LISTS _v_all_groups)
+            if (_v_other_group STREQUAL "${_v_this_group}")
+                math(EXPR _v_members "${_v_members}+1")
+            endif ()
+        endforeach ()
+
+        if (_v_members EQUAL 1)
+            list(GET _v_declared_files ${_v_declared_index} _v_this_file)
+            _v_warn("${_v_this_file}" "declares TEST_GROUP '${_v_this_group}', which no other suite shares; a group joins suites into one release unit, so a group of one is usually a misspelt group name. Groups in this database: ${_v_unique_groups}")
+        endif ()
+    endforeach ()
+endif ()
 
 message("")
 if (WARNINGS_AS_ERRORS AND _v_warnings GREATER 0)

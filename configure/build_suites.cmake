@@ -77,5 +77,12 @@ foreach (_suite IN LISTS _built_suites)
 endforeach ()
 file(WRITE "${BUILD_DIR}/CTestTestfile.cmake" "${_content}")
 
+# Put the suite-to-release-unit mapping beside the tests it describes, so that whatever reports
+# the run finds it next to the Testing/ directory ctest writes, without needing to know where
+# the framework kept its working files.
+if (EXISTS "${TESTS_BASE_DIR}/suites.json")
+    configure_file("${TESTS_BASE_DIR}/suites.json" "${BUILD_DIR}/suites.json" COPYONLY)
+endif ()
+
 list(LENGTH _built_suites _count)
 message(STATUS "Built ${_count} test suite(s).")

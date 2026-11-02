@@ -22,6 +22,9 @@ file(MAKE_DIRECTORY "${SCRATCH}")
 # rather than committed with one baked in.
 set(GENERATED_DATABASES "${CMAKE_CURRENT_BINARY_DIR}/databases")
 set(REPOS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/repos")
+# Suite definitions a fixture database pulls in through TEST_EXTERNAL_REFERENCE. Reached over a
+# file:// URL so the reference path is exercised without the self-tests needing the network.
+set(REFERENCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/references")
 set(STUB_LIBCELLML "${CMAKE_CURRENT_SOURCE_DIR}/stub-libcellml")
 file(GLOB _database_templates RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/database-templates"
      "${CMAKE_CURRENT_SOURCE_DIR}/database-templates/*/*.cmake.in")
@@ -38,7 +41,7 @@ find_package(Python3 COMPONENTS Interpreter)
 # add_configure_test(<case> <database> PASS|FAIL [MATCH <a|||b>] [NOT_MATCH <a|||b>]
 #                    [LOG_MATCH <regex>] [ARGS <a>|<b>])
 function(add_configure_test _case _database _expectation)
-    cmake_parse_arguments(_t "BUILD;STALE" "MATCH;NOT_MATCH;LOG_MATCH;LOG_NOT_MATCH;CTEST_MATCH;EXPECT_SUITES;ARGS" "" ${ARGN})
+    cmake_parse_arguments(_t "BUILD;STALE" "MATCH;NOT_MATCH;LOG_MATCH;LOG_NOT_MATCH;CTEST_MATCH;EXPECT_SUITES;EXPECT_GROUPS;EXPECT_LABEL_COUNTS;ARGS" "" ${ARGN})
 
     # A fixture is a directory of definitions, or a single definition file.
     set(_database_dir "${DATABASES}/${_database}")
@@ -71,7 +74,8 @@ function(add_configure_test _case _database _expectation)
     if (_t_STALE)
         list(APPEND _command "-DSTALE_TESTS_FILE=TRUE")
     endif ()
-    foreach (_option MATCH NOT_MATCH LOG_MATCH LOG_NOT_MATCH CTEST_MATCH EXPECT_SUITES ARGS)
+    foreach (_option MATCH NOT_MATCH LOG_MATCH LOG_NOT_MATCH CTEST_MATCH EXPECT_SUITES EXPECT_GROUPS
+                     EXPECT_LABEL_COUNTS ARGS)
         if (_t_${_option})
             if (_option STREQUAL "ARGS")
                 list(APPEND _command "-DEXTRA_ARGS=${_t_ARGS}")
@@ -334,3 +338,56 @@ add_configure_test(aligned-with-placeholders aligned-with-placeholders PASS
 add_configure_test(no-python-no-interpreter cxx-only PASS
     ARGS "-DE2E_PYTHON_EXECUTABLE=/nonexistent/python"
     NOT_MATCH "Python")
+
+# ---------------------------------------------------------------------------------------------
+# Release units. A suite's tests are labelled with the suite's own name and with the release unit
+# it belongs to, so that two definition files can gate one piece of documentation: if either
+# fails, 'ctest -L <unit>' fails. The default unit is the suite's own name, which is the
+# one-to-one relationship the framework had before groups existed.
+# ---------------------------------------------------------------------------------------------
+
+add_configure_test(group-defaults-to-suite-name cxx-only PASS
+    EXPECT_SUITES "plain"
+    EXPECT_GROUPS "plain"
+    MATCH "set_tests_properties\\(plain PROPERTIES LABELS \"suite:plain;unit:plain\"\\)")
+
+# The feature proper: beta declares alpha's group, so both suites carry the 'alpha' label and a
+# failure in either fails the unit.
+add_configure_test(group-joins-release-unit group-shared PASS
+    EXPECT_SUITES "alpha|beta"
+    EXPECT_GROUPS "alpha|alpha"
+    MATCH "LABELS \"suite:alpha;unit:alpha\"|||LABELS \"suite:beta;unit:alpha\"")
+
+# A group nobody else is in is almost always a misspelt group name, and nothing else would say
+# so: the suite still runs, still passes, and silently stops gating what it was added to gate.
+add_configure_test(group-typo-warns group-typo PASS
+    EXPECT_GROUPS "alpha|alpa"
+    LOG_MATCH "no other suite")
+
+# The negative control for the warning above. Without it, a warning that fired on every database
+# would still pass the test above.
+add_configure_test(group-shared-does-not-warn group-shared PASS
+    LOG_NOT_MATCH "no other suite")
+
+add_configure_test(group-invalid-name group-invalid FAIL
+    LOG_MATCH "invalid TEST_GROUP")
+
+add_configure_test(group-list-rejected group-list FAIL
+    LOG_MATCH "2 values")
+
+# Everything else a referencing file sets is discarded in favour of the downloaded definition.
+# The group is the exception, because the referencing database is the one doing the releasing.
+add_configure_test(group-from-referencing-file-wins group-reference PASS
+    EXPECT_SUITES "aaa_local|zzz_referrer"
+    EXPECT_GROUPS "aaa_local|aaa_local"
+    MATCH "upstream_prog")
+
+if (CMAKE_CXX_COMPILER)
+    # Built and then interrogated with ctest itself: a release unit is only real if ctest can be
+    # asked for it. alpha contributes two tests and beta two more, all four in the alpha unit,
+    # while beta remains separately addressable for working out which file to go and fix.
+    add_configure_test(group-labels-select-release-unit group-build PASS
+        BUILD
+        ARGS "-DlibCellML_DIR=${STUB_LIBCELLML}"
+        EXPECT_LABEL_COUNTS "unit:alpha=4|suite:alpha=2|suite:beta=2")
+endif ()

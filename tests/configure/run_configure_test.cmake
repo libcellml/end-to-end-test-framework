@@ -20,6 +20,12 @@
       LOG_MATCH / LOG_NOT_MATCH
                                Regular expressions the configure output must or must not match.
       EXPECT_SUITES            Pipe-separated suite names the manifest must list, in order.
+      EXPECT_GROUPS            Pipe-separated release units the manifest must list, index-aligned
+                               with EXPECT_SUITES. Checked in suites.cmake and in suites.json,
+                               which must agree.
+      EXPECT_LABEL_COUNTS      Pipe-separated <label>=<count> pairs. Each is checked by asking
+                               the built tree how many tests 'ctest -L <label>' selects. Needs
+                               BUILD_SUITES.
       BUILD_SUITES             If true, also build every generated project and run ctest over it.
                                Needs a C++ compiler and the stub libCellML.
       STALE_TESTS_FILE         If true, leave a file where the tests directory belongs first, as
@@ -111,6 +117,42 @@ if (DEFINED EXPECT_SUITES AND NOT EXPECT_SUITES STREQUAL "")
     endif ()
 endif ()
 
+# A release unit spans suites, so the mapping from one to the other is published rather than
+# inferred from test names. Both copies are checked: CMake reads suites.cmake, and whatever
+# reports the run reads suites.json, and the two drifting apart would be invisible otherwise.
+if (DEFINED EXPECT_GROUPS AND NOT EXPECT_GROUPS STREQUAL "")
+    set(E2E_SUITE_GROUPS)
+    if (EXISTS "${_tests_base}/suites.cmake")
+        include("${_tests_base}/suites.cmake")
+    endif ()
+    string(REPLACE "|" ";" _expected_groups "${EXPECT_GROUPS}")
+    if (NOT "${E2E_SUITE_GROUPS}" STREQUAL "${_expected_groups}")
+        list(APPEND _failures "manifest groups [${E2E_SUITE_GROUPS}], expected [${_expected_groups}]")
+    endif ()
+
+    if (NOT EXISTS "${_tests_base}/suites.json")
+        list(APPEND _failures "no suites.json was written")
+    else ()
+        file(READ "${_tests_base}/suites.json" _suites_json_text)
+        string(JSON _json_count ERROR_VARIABLE _json_error LENGTH "${_suites_json_text}" suites)
+        if (_json_error)
+            list(APPEND _failures "suites.json is not valid JSON: ${_json_error}")
+        else ()
+            set(_json_groups)
+            if (_json_count GREATER 0)
+                math(EXPR _json_last "${_json_count}-1")
+                foreach (_json_index RANGE 0 ${_json_last})
+                    string(JSON _json_group GET "${_suites_json_text}" suites ${_json_index} group)
+                    list(APPEND _json_groups "${_json_group}")
+                endforeach ()
+            endif ()
+            if (NOT "${_json_groups}" STREQUAL "${_expected_groups}")
+                list(APPEND _failures "suites.json groups [${_json_groups}], expected [${_expected_groups}]")
+            endif ()
+        endif ()
+    endif ()
+endif ()
+
 function(_check_patterns _patterns _subject _subject_name _must_match _out)
     set(_found ${${_out}})
     string(REPLACE "|||" ";" _pattern_list "${_patterns}")
@@ -161,6 +203,12 @@ if (BUILD_SUITES AND NOT _failures)
         list(APPEND _failures "building the generated suites failed")
         set(_log "${_log}\n--- build ---\n${_build_log}")
     else ()
+        # Whatever reports the run looks for the mapping beside the Testing/ directory ctest
+        # writes, not wherever the framework kept its working files.
+        if (NOT EXISTS "${_build}/suites/suites.json")
+            list(APPEND _failures "suites.json was not placed in the build directory")
+        endif ()
+
         execute_process(
             COMMAND "${CMAKE_CTEST_COMMAND}"
             WORKING_DIRECTORY "${_build}/suites"
@@ -174,6 +222,36 @@ if (BUILD_SUITES AND NOT _failures)
         endif ()
         if (DEFINED CTEST_MATCH AND NOT CTEST_MATCH STREQUAL "")
             _check_patterns("${CTEST_MATCH}" "${_ctest_log}" "ctest output" TRUE _failures)
+        endif ()
+
+        # The end of the chain: a release unit is only real if ctest can be asked for it. This
+        # asks the built tree directly rather than reading the generated text back.
+        if (DEFINED EXPECT_LABEL_COUNTS AND NOT EXPECT_LABEL_COUNTS STREQUAL "")
+            string(REPLACE "|" ";" _label_expectations "${EXPECT_LABEL_COUNTS}")
+            foreach (_label_expectation IN LISTS _label_expectations)
+                string(FIND "${_label_expectation}" "=" _label_separator)
+                if (_label_separator LESS 1)
+                    list(APPEND _failures "EXPECT_LABEL_COUNTS entry '${_label_expectation}' is not <label>=<count>")
+                    continue()
+                endif ()
+                string(SUBSTRING "${_label_expectation}" 0 ${_label_separator} _label)
+                math(EXPR _label_value_start "${_label_separator}+1")
+                string(SUBSTRING "${_label_expectation}" ${_label_value_start} -1 _expected_label_count)
+
+                execute_process(
+                    COMMAND "${CMAKE_CTEST_COMMAND}" -N -L "${_label}"
+                    WORKING_DIRECTORY "${_build}/suites"
+                    OUTPUT_VARIABLE _label_log
+                    ERROR_VARIABLE _label_log
+                )
+                string(REGEX MATCHALL "Test +#[0-9]+:" _label_hits "${_label_log}")
+                list(LENGTH _label_hits _actual_label_count)
+                if (NOT _actual_label_count EQUAL _expected_label_count)
+                    list(APPEND _failures
+                        "ctest -L ${_label} selects ${_actual_label_count} test(s), expected ${_expected_label_count}")
+                    set(_log "${_log}\n--- ctest -L ${_label} ---\n${_label_log}")
+                endif ()
+            endforeach ()
         endif ()
     endif ()
 endif ()

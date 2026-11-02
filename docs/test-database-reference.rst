@@ -32,9 +32,55 @@ Variable                     Required  Description
 ``TEST_GIT_REPO``            Yes [#]_  Git URL to clone, or an absolute path to a local checkout.
 ``TEST_COMMIT_HASH``         No        Commit, tag or branch to check out. Defaults to ``main``.
 ``TEST_EXTERNAL_REFERENCE``  No        URL of another definition file that replaces this one entirely.
+``TEST_GROUP``               No        Release unit this suite belongs to, applied to every one of its
+                                       tests as a CTest label. Defaults to the suite name.
 ===========================  ========  ===================================================================
 
 .. [#] Not required when ``TEST_EXTERNAL_REFERENCE`` is set.
+
+Release units
+=============
+
+A suite's results normally stand for one thing: if ``libcellml_howto`` passes, the how-to
+documentation is fit to publish. That one-to-one relationship is the default, and a database that
+never mentions ``TEST_GROUP`` keeps it.
+
+It stops being enough as soon as one piece of documentation is tested from two definition files.
+``TEST_GROUP`` names the **release unit** a suite belongs to, and suites that share one stand or
+fall together::
+
+    # libcellml_tutorials.cmake -- no TEST_GROUP, so the unit is 'libcellml_tutorials'
+
+    # libcellml_tutorial_resources.cmake
+    set(TEST_GROUP libcellml_tutorials)
+
+Every test is labelled twice, as ``suite:<name>`` and ``unit:<name>``. The release unit is then
+a single question to CTest, whose exit status is the answer:
+
+.. code-block:: bash
+
+    ctest -L unit:libcellml_tutorials           # every test in the unit, from both files
+    ctest -L suite:libcellml_tutorial_resources # one file's tests, to see what to fix
+
+Both labels are prefixed, and that is deliberate. A unit is named after a suite by default, so
+two bare names would leave nothing able to tell which was which --- and because the argument to
+``-L`` is a regular expression matched anywhere in a label, a bare ``libcellml_tutorials`` would
+select the unit's tests as well as the suite's. For the same reason, anchor the expression with
+``^...$`` when one name is a prefix of another.
+
+Two consequences are worth knowing:
+
+* A group name becomes a CTest label, so it may contain letters, digits, underscores and hyphens
+  only, and a suite belongs to exactly one. Anything else is a fatal error at configure time.
+* A group that exactly one suite declares, and that no other suite shares, draws a warning. A
+  group of one is almost always a misspelling, and the damage would otherwise be silent: the unit
+  splits in two and a suite quietly stops gating the documentation it was added to gate, while
+  every test still passes.
+
+The mapping from suite to release unit is also written out with the generated tests, as
+``suites.cmake`` for CMake and ``suites.json`` beside the built tests. A report needs it to list
+a unit whose tests never ran at all, which is otherwise indistinguishable from a unit with
+nothing to say.
 
 Target variables
 ================
@@ -260,7 +306,10 @@ A definition file may delegate to another one::
       "https://raw.githubusercontent.com/libcellml/end-to-end-test-database/8cd205aa.../libcellml_tutorials.cmake")
 
 The referenced file is downloaded into ``<build>/tests/ExternalReference/<suite-name>.cmake`` and
-read in place of the referencing file. Every other variable in the referencing file is ignored.
+read in place of the referencing file. Every other variable in the referencing file is ignored,
+with one exception: ``TEST_GROUP``. Which documentation a suite gates is the referencing
+database's business, not the referenced definition's, so a group declared alongside a reference
+is kept and outranks any the downloaded file sets.
 
 This exists so that one database can reuse a suite definition maintained in another, which is how
 ``libcellml.org-documentation-test-database`` picks up the tutorials suite from the canonical
@@ -272,6 +321,8 @@ Two things to know about it:
   change under you. Use a commit SHA in the path, as in the example above.
 * **References do not nest.** A referenced file that itself sets ``TEST_EXTERNAL_REFERENCE`` is
   rejected with an error; reference the suite definition directly.
+* **The release unit stays local.** Set ``TEST_GROUP`` beside the reference to put the referenced
+  suite in a release unit with others, without needing a change upstream.
 
 The download is verified. A transfer that fails, one that produces an empty file, and one that
 produces a file defining no ``TEST_GIT_REPO`` are all fatal errors naming the suite and the URL, so

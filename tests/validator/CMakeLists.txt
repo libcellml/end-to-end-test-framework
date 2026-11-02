@@ -190,3 +190,27 @@ if (VALIDATOR_TEST_NETWORK)
         ARGS "-DCHECK_REFERENCES=ON"
         MATCH "resolving reference")
 endif ()
+
+# ------------------------------------------------------------------------------------------------
+# Release units. Several suites that share a TEST_GROUP gate one piece of documentation together.
+# ------------------------------------------------------------------------------------------------
+
+# The alternation also covers TEST_GROUP going missing from the validator's list of settings the
+# framework reads, which would otherwise show up only as a spurious typo warning on every
+# database that uses it.
+add_validator_test(valid-group-shared PASS
+    NOT_MATCH "no other suite shares|does not read")
+
+add_validator_test(warn-group-of-one PASS
+    MATCH "which no other suite shares")
+
+add_validator_test(invalid-group-name FAIL
+    MATCH "is not a valid group name")
+
+add_validator_test(invalid-group-list FAIL
+    MATCH "a suite belongs to exactly one release unit")
+
+# A group declared beside an external reference is kept, not reported as a setting the reference
+# will discard, and the suite it joins stops it being flagged as a group of one.
+add_validator_test(valid-group-on-reference PASS
+    NOT_MATCH "no other suite shares")

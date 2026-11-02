@@ -1,0 +1,6 @@
+# Joins alpha's release unit, so 'ctest -L alpha' selects both suites' tests and its exit status
+# is the verdict for the unit as a whole.
+set(TEST_GIT_REPO "@REPOS_DIR@/beta")
+set(TEST_GROUP alpha)
+set(TEST_CMAKELISTS_DIR .)
+set(TEST_TARGETS shared beta_only)

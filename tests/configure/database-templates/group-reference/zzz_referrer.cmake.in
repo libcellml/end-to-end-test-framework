@@ -1,0 +1,5 @@
+# Delegates the suite definition upstream but keeps the release unit local. Everything else a
+# referencing file sets is discarded in favour of the downloaded definition; the group is not,
+# because which documentation a suite gates is the referencing database's business.
+set(TEST_EXTERNAL_REFERENCE "file://@REFERENCES_DIR@/upstream.cmake")
+set(TEST_GROUP aaa_local)

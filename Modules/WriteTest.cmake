@@ -11,8 +11,11 @@ include("${CMAKE_CURRENT_LIST_DIR}/Placeholder.cmake")
     write_test(COMPILED|PYTHON
         FILE <path>                the generated project to append to
         NAME <name>                the CTest test name
+        SUITE <name>               the test suite the test belongs to, applied as a label
         TARGET <name>              a CMake target for COMPILED, a script path for PYTHON
         ROOT <dir>                 the repository root the test resolves paths against
+        [GROUP <name>]             the release unit the suite belongs to, applied as a second
+                                   label; defaults to SUITE
         [ARGS <a|b|c>]             arguments, pipe-separated
         [EXPECTED_RESULTS <path>]  file or directory of expected output, relative to ROOT
         [ENV <NAME=value|...>]     environment variables, pipe-separated
@@ -24,9 +27,9 @@ include("${CMAKE_CURRENT_LIST_DIR}/Placeholder.cmake")
 ]]
 function(write_test _kind)
     cmake_parse_arguments(PARSE_ARGV 1 _t
-        "" "FILE;NAME;TARGET;ROOT;ARGS;EXPECTED_RESULTS;ENV;RETURN_CODE" "")
+        "" "FILE;NAME;SUITE;TARGET;ROOT;GROUP;ARGS;EXPECTED_RESULTS;ENV;RETURN_CODE" "")
 
-    foreach (_required FILE NAME TARGET ROOT)
+    foreach (_required FILE NAME SUITE TARGET ROOT)
         if (NOT DEFINED _t_${_required} OR _t_${_required} STREQUAL "")
             message(FATAL_ERROR "write_test: ${_required} is required.")
         endif ()
@@ -102,6 +105,24 @@ add_test(NAME ${_name}
    \"-DTEST_OUTPUT=\${CMAKE_BINARY_DIR}/test_runs/${_name}\"
    -P \"${TESTS_BASE_DIR}/run_test.cmake\"
 )
+")
+
+    # Two labels: the suite that owns the test and the release unit it belongs to.
+    # 'ctest -L unit:<name>' selects every test in a release unit across all the suites that
+    # form it, and the exit status of that run is the verdict for the documentation it gates;
+    # 'ctest -L suite:<name>' narrows a failure back to the one definition file that owns it.
+    #
+    # Both are prefixed, and that is what keeps them apart. A release unit is named after a
+    # suite by default, so two bare names would leave nothing downstream able to tell which was
+    # which -- and since the argument to -L is a regular expression matched anywhere in a label,
+    # an unprefixed 'alpha' would select the unit's tests as well as the suite's.
+    set(_unit "${_t_GROUP}")
+    if (_unit STREQUAL "")
+        set(_unit "${_t_SUITE}")
+    endif ()
+    set(_labels "suite:${_t_SUITE}" "unit:${_unit}")
+    file(APPEND "${_t_FILE}" "
+set_tests_properties(${_name} PROPERTIES LABELS \"${_labels}\")
 ")
 
     if (NOT _configured_environment STREQUAL "" AND NOT _configured_environment STREQUAL "NOENV=")

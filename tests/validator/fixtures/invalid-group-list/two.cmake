@@ -1,0 +1,5 @@
+set(TEST_GIT_REPO "https://example.com/two")
+set(TEST_COMMIT_HASH "abc1234")
+set(TEST_GROUP one two)
+set(TEST_CMAKELISTS_DIR .)
+set(TEST_TARGETS two_prog)

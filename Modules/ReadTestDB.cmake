@@ -64,7 +64,15 @@ macro(_process_reference_tests _TEST_BASE_DIR)
         # The referencing file already set this on the first pass. Clear it so that the check
         # below sees what the *downloaded* file defined, not what pointed at it.
         unset(TEST_${TEST_COUNT}_EXTERNAL_REFERENCE)
+        # The second pass recomputes the group from the downloaded file, which does not know what
+        # this database releases. A group the referencing file declared is put back afterwards.
+        set(_referencing_group "${TEST_${TEST_COUNT}_GROUP}")
+        set(_referencing_group_declared "${TEST_${TEST_COUNT}_GROUP_DECLARED}")
         add_functional_test(${_external_reference_file})
+        if (_referencing_group_declared)
+            set(TEST_${TEST_COUNT}_GROUP "${_referencing_group}")
+            set(TEST_${TEST_COUNT}_GROUP_DECLARED TRUE)
+        endif ()
         if (TEST_${TEST_COUNT}_EXTERNAL_REFERENCE)
             message(FATAL_ERROR
                 "The external reference for test suite '${_current_test_name}' is itself an external reference.\n"
@@ -119,6 +127,40 @@ macro(read_test_db_file _FILE _TEST_BASE_DIR)
     _process_reference_tests("${_TEST_BASE_DIR}")
 endmacro()
 
+# A group names the release unit a suite belongs to. Several suites that share a group are
+# reported together and stand or fall together, which is how two definition files can gate one
+# piece of documentation. The default is the suite's own name, so a database that never mentions
+# a group keeps the one-to-one relationship the framework had before groups existed.
+function(_resolve_test_group _suite _file _declared _out_group _out_was_declared)
+    if (_declared STREQUAL "")
+        set(${_out_group} "${_suite}" PARENT_SCOPE)
+        set(${_out_was_declared} FALSE PARENT_SCOPE)
+        return()
+    endif ()
+
+    list(LENGTH _declared _declared_length)
+    if (_declared_length GREATER 1)
+        message(FATAL_ERROR
+            "Test suite '${_suite}' sets TEST_GROUP to ${_declared_length} values.\n"
+            "  defined in: ${_file}\n"
+            "A suite belongs to exactly one release unit, so TEST_GROUP takes a single name.")
+    endif ()
+
+    # The group becomes a CTest label, and a label is selected with 'ctest -L <group>', where the
+    # argument is a regular expression. Keeping the character set plain means a group name never
+    # has to be escaped to be selected.
+    if (NOT _declared MATCHES "^[A-Za-z0-9_][A-Za-z0-9_-]*$")
+        message(FATAL_ERROR
+            "Test suite '${_suite}' has an invalid TEST_GROUP of '${_declared}'.\n"
+            "  defined in: ${_file}\n"
+            "A group name may contain letters, digits, underscores and hyphens, and may not "
+            "start with a hyphen.")
+    endif ()
+
+    set(${_out_group} "${_declared}" PARENT_SCOPE)
+    set(${_out_was_declared} TRUE PARENT_SCOPE)
+endfunction()
+
 # A test suite's settings come in two groups of index-aligned lists: TARGETS with TARGETS_ARGS and
 # EXPECTED_RESULTS, and CMAKELISTS_DIR with CMAKE_DEFS. A list that is present but the wrong length
 # makes list(GET) fail much later with
@@ -153,6 +195,15 @@ macro(add_functional_test TEST_DESCRIPTION_FILE)
     include(${TEST_DESCRIPTION_FILE})
     get_filename_component(TEST_NAME "${TEST_DESCRIPTION_FILE}" NAME_WE)
     set(TEST_${TEST_COUNT}_NAME ${TEST_NAME})
+
+    # Settled before the branch below, so that a file which delegates to an external reference can
+    # still say which release unit the suite belongs to. Which documentation a suite gates is the
+    # referencing database's business, not the referenced definition's.
+    _resolve_test_group("${TEST_NAME}" "${TEST_DESCRIPTION_FILE}" "${TEST_GROUP}"
+        _resolved_group _resolved_group_declared)
+    set(TEST_${TEST_COUNT}_GROUP ${_resolved_group})
+    set(TEST_${TEST_COUNT}_GROUP_DECLARED ${_resolved_group_declared})
+
     if (TEST_EXTERNAL_REFERENCE)
         set(TEST_${TEST_COUNT}_EXTERNAL_REFERENCE ${TEST_EXTERNAL_REFERENCE})
     else()
@@ -189,6 +240,7 @@ endmacro()
 macro(unset_test_variables)
     unset(TEST_NAME)
     unset(TEST_EXTERNAL_REFERENCE)
+    unset(TEST_GROUP)
     unset(TEST_GIT_REPO)
     unset(TEST_COMMIT_HASH)
 
