@@ -34,7 +34,8 @@ execute_process(
     WORKING_DIRECTORY "${TEST_WORKING_DIR}")
 
 set(TEST_STDOUT_FILE "${TEST_WORKING_DIR}/${TEST_NAME}.ctest_stdout")
-file(WRITE ${TEST_STDOUT_FILE} ${_out})
+# Quote both arguments, if the ${_out} is not quoted then ';' get silently removed.
+file(WRITE "${TEST_STDOUT_FILE}" "${_out}")
 
 function(compare_files _test_name _file1 _file2)
     set(NUMDIFF_EXE "@NUMDIFF_EXE@")

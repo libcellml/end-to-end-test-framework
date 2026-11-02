@@ -152,3 +152,13 @@ add_run_test(single-file-never-written writes_file.cmake FAIL EXPECTED "single_m
 
 add_run_test(stdout-test-root-substitution prints_test_root.cmake PASS
     EXPECTED "test_root/prog.stdout")
+
+# ---------------------------------------------------------------------------------------------
+# Semicolons in captured output. CMake expands an unquoted variable as a list, splitting it on
+# ';', and file(WRITE) concatenates the arguments it is given, so writing the captured output
+# unquoted deleted every semicolon on its way to disk. Nothing else was affected, which made the
+# mismatch look like a fault in the program being tested rather than in the harness running it.
+# ---------------------------------------------------------------------------------------------
+
+add_run_test(stdout-semicolons-preserved prints_semicolons.cmake PASS
+    EXPECTED "semicolons/")

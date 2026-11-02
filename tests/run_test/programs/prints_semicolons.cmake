@@ -1,0 +1,6 @@
+message("plain line")
+message("a ; b")
+message("units: mV;mS_per_cm2;microA_per_cm2")
+message("trailing ;")
+message("doubled ;; pair")
+message("plain tail")
